@@ -5,9 +5,11 @@ This work implements two generic C++ fixed-point arithmetic data types. It is a 
 In this work we use the notation Q(*a*,*b*) to denote a fixed-point number with *a* integer bits and *b* fractional bits. Fixed-point numbers come in two different forms, signed or unsigned, and the sign of the number is specified by the context in which the fixed point number is used.
 
 <div align="center"><img src="resources/unsigned_fixed_point_example.svg" align="center" alt="Unsigned fixed-point number example"></div>
+
 **Figure 1:** *Example of the number 6.375 in Q(4,4) unsigned fixed point.*
 
 <div align="center"><img src="resources/signed_fixed_point_example.svg" align="center" alt="Signed fixed-point number example"></div>
+
 **Figure 2:** *Example of the number -4.75 in Q(4,4) signed fixed point.*
 
 ## Data types

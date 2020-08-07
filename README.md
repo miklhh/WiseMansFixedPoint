@@ -6,7 +6,7 @@ In this work we use the notation Q(*a*,*b*) to denote a fixed-point number with 
 
 <div align="center"><img src="resources/unsigned_fixed_point_example.svg" align="center" alt="Unsigned fixed-point number example"></div>
 
-<div align="center">**Figure 1:** *Example of the number 6.375 in Q(4,4) unsigned fixed point.*</div>
+<div align="center"><p><strong>Figure 1:</strong> Example of the number 6.375 in Q(4,4) unsigned fixed point. </p></div>
 
 <div align="center"><img src="resources/signed_fixed_point_example.svg" align="center" alt="Signed fixed-point number example"></div>
 

@@ -6,7 +6,7 @@ In this work we use the notation Q(*a*,*b*) to denote a fixed-point number with 
 
 <div align="center"><img src="resources/unsigned_fixed_point_example.svg" align="center" alt="Unsigned fixed-point number example"></div>
 
-<div align="center"><img src="resources/unsigned_fixed_point_example.svg" align="center" alt="Signed fixed-point number example"></div>
+<div align="center"><img src="resources/signed_fixed_point_example.svg" align="center" alt="Signed fixed-point number example"></div>
 
 ## Data types
 *WiseMansFixedPoint* implements two generic fixed point data types, a signed and an unsigned type:

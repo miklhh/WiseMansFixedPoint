@@ -6,11 +6,11 @@ In this work we use the notation Q(*a*,*b*) to denote a fixed-point number with 
 
 <div align="center"><img src="resources/unsigned_fixed_point_example.svg" align="center" alt="Unsigned fixed-point number example"></div>
 
-**Figure 1:** *Example of the number 6.375 in Q(4,4) unsigned fixed point.*
+<div align="center">**Figure 1:** *Example of the number 6.375 in Q(4,4) unsigned fixed point.*</div>
 
 <div align="center"><img src="resources/signed_fixed_point_example.svg" align="center" alt="Signed fixed-point number example"></div>
 
-**Figure 2:** *Example of the number -4.75 in Q(4,4) signed fixed point.*
+<div align="center">**Figure 2:** *Example of the number -4.75 in Q(4,4) signed fixed point.*</div>
 
 ## Data types
 *WiseMansFixedPoint* implements two generic fixed point data types, a signed and an unsigned type:

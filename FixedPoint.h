@@ -14,19 +14,6 @@
  *
  * CAVIATS:
  *
- *   * For rounding to work properly, the fractional part of the FixedPoint
- *     number has to be strictly less than 32 bits. For numbers with 32
- *     fractional bits, the result will round towards -INF.
- *
- *   * The implementation requires support for the compiler extension '__int128'
- *     which is used for longer fixed point multiplications and divisions. As
- *     far as I know, this feature is not supported by the Visual C++ compiler.
- *
- *   * The implementation makes use of some implementation defined behaviour, in
- *     that is depends on right shifts of signed integers to realize arithmetic
- *     shifts. This is the default behaviour of many modern compilers, and if
- *     your compiler does not support this functionality, the code will generate
- *     a compile time error through a static assertion.
  *
  * Author: Mikael Henriksson [www.github.com/miklhh]
  */
@@ -34,8 +21,10 @@
 #ifndef _WISE_MANS_FIXED_POINT_H
 #define _WISE_MANS_FIXED_POINT_H
 
-#include <ostream>
+#include "ttmath/ttmath.h"
+
 #include <string>
+#include <sstream>
 #include <cmath>
 #include <iostream> // DEBUGING!
 #include <algorithm>
@@ -43,62 +32,37 @@
 #include <cstdint>
 
 /*
- * Test for compiler support of the __int128 integer data type. As of yet there
- * is no fallback for the lack of this functionality.
+ * Wide integer types. The 128 bit integers are used as underlying data type
+ * for the fixed point numbers and the 256 bit integers are used for multiplying
+ * and dividing the fixed point numbers.
  */
-#if ( !defined( __SIZEOF_INT128__) )
-    #error "WiseMansFixedPoint: no support for extension __int128 detected."
-#else
-    static_assert( sizeof(void *) >= 8,
-           "WiseMansFixedPoint: no support for extension __int128 detected.");
-#endif
+using int128_t = ttmath::Int<2>;
+using int256_t = ttmath::Int<4>;
+using uint128_t = ttmath::UInt<2>;
+using uint256_t = ttmath::UInt<4>;
+using float64_t = ttmath::Big<11,52>; // TTMath IEEE 754 double floating point.
 
 /*
- * We rely on signed right shift to be arithmetic. Signed right shift of
- * negative values are normally implementation defined behaviour and therefore
- * needs testing to assure correct functionality.
+ * Simple TTMath to_string function that generates a string of the underlying 
+ * 2's complement data as a hex string. Not padded in any way.
  */
-static_assert( (-2ll >> 1) == -1ll,
-        "WiseMansFixedPoint rely on signed right shifts to be arithmetic." );
-static_assert( __int128(-2) >> 1 == __int128(-1),
-        "WiseMansFixedPoint rely on signed right shifts to be arithmetic." );
+template <unsigned long _N> 
+static inline std::string to_string_hex(const ttmath::Int<_N> &a) 
+{
+    const char hex_alphabet[] = "0123456789ABCDEF";
 
-/*
- * Helper functions for converting the buildin __int128 data types to
- * std::string objects.
- */
-//static inline std::string int128_to_string_base10(__int128 num)
-//{
-//    // Result can always fit in 42 characters including negative sign and null
-//    // terminating character. Start applying characters from the back of the
-//    // buffer.
-//    char buffer[42] = { 0 };
-//    std::size_t idx{ 40 };
-//    bool negative{ num < 0 };
-//    while (num != 0)
-//    {
-//        buffer[idx--] = negative ? '0' - num%10 : '0' + num%10;
-//        num /= 10;
-//    }
-//    if (negative)
-//    {
-//        buffer[idx--] = '-';
-//    }
-//    return std::string( &buffer[idx+1] );
-//}
-//
-//static inline std::string uint128_to_string_base10(unsigned __int128 num)
-//{
-//    // Result can always fit in 41 characters.
-//    char buffer[41] = { 0 };
-//    std::size_t idx{ 39 };
-//    while (num != 0)
-//    {
-//        buffer[idx--] = '0' + num%10;
-//        num /= 10;
-//    }
-//    return std::string( &buffer[idx+1] );
-//}
+    ttmath::UInt<_N> n{ a };
+    std::stringstream ss{};
+    std::string result{};
+    while (n != 0)
+    {   
+        ss << hex_alphabet[(n%0x10).ToUInt()];
+        n >>= 4;
+    }   
+    result = ss.str();
+    std::reverse(result.begin(), result.end());
+    return result.empty() ? std::string("0") : result;
+}
 
 /*
  * Fixed point base type for common upperation between signed and unsigned
@@ -121,34 +85,46 @@ public:
     static_assert(INT_BITS + FRAC_BITS > 0,
             "Need at least one bit of representation.");
 
+protected:
     /*
      * Helper function for retrieving a string of the fractional part on
      * quotient form.
      */
     std::string get_frac_quotient() const noexcept
     {
+        uint64_t numerator{ uint64_t(num.ToInt()) >> (64 - FRAC_BITS) };
         uint64_t denominator{ 1ull << FRAC_BITS };
-        uint64_t numerator{static_cast<uint64_t>(num & 0xFFFFFFFFFFFFFFFFull)};
-        numerator >>= 64 - FRAC_BITS;
         return std::to_string(numerator) + "/" + std::to_string(denominator);
     }
 
-    _128_INT_TYPE get_num_sign_extended() const noexcept
-    {
-        return (num << (64-INT_BITS)) >> 64-INT_BITS;
-    }
-
-
-protected:
+    /*
+     * Friend declaration for accessing protected members between different 
+     * types of fixed point numbers, i.e, between template instances with 
+     * different wordlenths.
+     */
+    template <int _INT_BITS, int _FRAC_BITS, typename __128_INT_TYPE>
+    friend class BaseFixedPoint;
+    template <int _INT_BITS, int _FRAC_BITS>
+    friend class SignedFixedPoint;
+    template <int _INT_BITS, int _FRAC_BITS>
+    friend class UnsignedFixedPoint;
 
     /*
      * Apply the bit mask to the internal representation to erase any bits
-     * outside the intended numbers range.
+     * outside the intended number range.
      */
     void apply_bit_mask() noexcept
     {
-        constexpr _128_INT_TYPE upper_mask = 1;
-        constexpr _128_INT_TYPE lower_mask = 2;
+        constexpr int WIDTH = INT_BITS+FRAC_BITS;
+        this->num &= ((int128_t(1) << WIDTH)-1) << (64-FRAC_BITS);
+    }
+    void apply_bit_mask_int() noexcept
+    {
+        this->num &= (int128_t(1) << (64+INT_BITS)) - 1;
+    }
+    void apply_bit_mask_frac() noexcept
+    {
+        this->num &= ~((int128_t(1) << (64-FRAC_BITS)) - 1);
     }
 
     /*
@@ -157,9 +133,37 @@ protected:
      */
     void round() noexcept
     {
-        // Perform the rounding.
         num += _128_INT_TYPE(1) << (63-FRAC_BITS);
     }
+    void round_and_mask() noexcept
+    {
+        round();
+        apply_bit_mask();
+    }
+
+    /*
+     * The internal representation of the fixed point number is considered dirty
+     * if any bit outside of the desiered range <a,b> is set.
+     */
+    bool dirty() const noexcept
+    {
+        constexpr int WIDTH = INT_BITS+FRAC_BITS;
+        return this->num & ~(((int128_t(1) << WIDTH)-1) << (64-FRAC_BITS));
+    }
+    bool dirty_int() const noexcept
+    {
+        return this->num & ~((int128_t(1) << (64+INT_BITS)) - 1);
+    }
+    bool dirty_frac() const noexcept
+    {
+        return this->num & ~((int128_t(1) << (64-INT_BITS)) - 1);
+    }
+
+    /*
+     * Returns the internal number representation 'num', sign extended. For the
+     * unsigned derived class, this method just return num.
+     */
+    virtual _128_INT_TYPE get_num_sign_extended() const noexcept;
 
     /*
      * Underlying data type. It will either be a signed or unsigned 128-bit
@@ -171,22 +175,39 @@ protected:
      * Protected constructor since base type should not be instantiatable.
      */
     BaseFixedPoint() = default;
+
+    /*
+     * Protected destructor.
+     */
+    virtual ~BaseFixedPoint() = default;
 };
+
 
 /*
  * Signed fixed point data type.
  */
 template <int INT_BITS, int FRAC_BITS>
-class SignedFixedPoint : public BaseFixedPoint<
-                         INT_BITS,FRAC_BITS,__int128>
+class SignedFixedPoint : public BaseFixedPoint<INT_BITS,FRAC_BITS,int128_t>
 {
 public:
+    SignedFixedPoint() = default;
+
+    /*
+     * Conversion to and from floating point numbers.
+     */
     explicit SignedFixedPoint(double a)
     {
-        int64_t b = std::llround(a * static_cast<double>(1ll << 32));
-        this->num = b; this->num <<= 32;
-        this->num = this->get_num_sign_extended();
+        long n = lround(std::ceil(std::log2( std::abs(a) + 1 ) + 1));
+        this->num = std::lround(a * double(1ul << (64-n)));
+        this->num <<= n;
         this->round();
+        this->apply_bit_mask_frac();
+    }
+
+    explicit operator double() const
+    {
+        return float64_t(this->get_num_sign_extended()).ToDouble() / 
+               std::pow(2.0, 64);
     }
 
     /*
@@ -194,19 +215,206 @@ public:
      */
     std::string to_string() const noexcept
     {
-        // Extract integer part.
-        std::string integer{ 
-            std::to_string(int64_t(this->get_num_sign_extended() >> 64)) 
-        };
+        // Extract integer part. Result of the right shift operation is the 
+        // sign extended number as an unsigned type.
+        int128_t sign_num = this->get_num_sign_extended();
+        long int integer = static_cast<long int>((sign_num >> 64).ToUInt());
+        std::string integer_str( std::to_string(integer) );
 
         // Append fractional part.
-        return integer + " + " + this->get_frac_quotient();
+        return integer_str + " + " + this->get_frac_quotient();
+    }
+
+
+    /*
+     * Addition and subtraction arithmetic.
+     */
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
+    SignedFixedPoint<INT_BITS, FRAC_BITS>
+        operator+(const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,_RHS_128_INT_TYPE> &rhs) const noexcept
+    {
+        SignedFixedPoint<INT_BITS, FRAC_BITS> res{};
+        res.num = this->num + rhs.num;
+        res.apply_bit_mask_frac();
+        return res;
+    }
+
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
+    SignedFixedPoint<INT_BITS, FRAC_BITS>
+        operator-(const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,_RHS_128_INT_TYPE> &rhs) const noexcept
+    {
+        SignedFixedPoint<INT_BITS, FRAC_BITS> res{};
+        res.num = this->num - rhs.num;
+        res.apply_bit_mask_frac();
+        return res;
+    }
+
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
+    SignedFixedPoint<INT_BITS, FRAC_BITS>
+        &operator+=(const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,_RHS_128_INT_TYPE> &rhs) noexcept
+    {
+        this->num += rhs.num;
+        this->apply_bit_mask_frac();
+        return *this;
+    }
+
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
+    SignedFixedPoint<INT_BITS, FRAC_BITS>
+        &operator-=(const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,_RHS_128_INT_TYPE> &rhs) noexcept
+    {
+        this->num -= rhs.num;
+        this->apply_bit_mask_frac();
+        return *this;
+    }
+
+
+    /*
+     * Multiplication and division airthmetic. Note that, just like in VHDL and
+     * Verilog, the result of <a,b>*<c,d> = <a+c,b+d>. Using operator*= will 
+     * of course result in a fixed point number of word length equal to the left
+     * hand side. Like wise, to conform with the VHDL and Verilog way of doing
+     * division, the result of <a,b>/<c,d> = <a,b>.
+     */
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
+    SignedFixedPoint<INT_BITS+RHS_INT_BITS, FRAC_BITS+RHS_FRAC_BITS>
+        operator*(const BaseFixedPoint<RHS_INT_BITS,
+                                       RHS_FRAC_BITS,
+                                       _RHS_128_INT_TYPE> &rhs) const noexcept
+    {
+        SignedFixedPoint<INT_BITS+RHS_INT_BITS, FRAC_BITS+RHS_FRAC_BITS> res{};
+        int256_t long_lhs = this->get_num_sign_extended();
+        int256_t long_rhs = rhs.get_num_sign_extended();
+        int256_t long_res = long_lhs * long_rhs;
+        long_res >>= 64;
+        res.num = long_res;
+        res.apply_bit_mask_frac();
+        return res;
+    }
+
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
+    SignedFixedPoint<INT_BITS, FRAC_BITS>
+        &operator*=(const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,_RHS_128_INT_TYPE> &rhs) noexcept
+    {
+        SignedFixedPoint<INT_BITS+RHS_INT_BITS, FRAC_BITS+RHS_FRAC_BITS> res{};
+        res = *this * rhs;
+        return *this = res;
+    }
+
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
+    SignedFixedPoint<INT_BITS, FRAC_BITS>
+        operator/(const BaseFixedPoint<RHS_INT_BITS,
+                                       RHS_FRAC_BITS,
+                                       _RHS_128_INT_TYPE> &rhs) const
+    {
+        SignedFixedPoint<INT_BITS+RHS_INT_BITS, FRAC_BITS+RHS_FRAC_BITS> res{};
+        int256_t long_lhs = this->get_num_sign_extended();
+        int256_t long_rhs = rhs.get_num_sign_extended();
+        long_lhs <<= 128;
+        int256_t long_res = long_lhs / long_rhs;
+        long_res >>= 64;
+        res.num = long_res;
+        res.apply_bit_mask_frac();
+        return res;
+    }
+
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
+    SignedFixedPoint<INT_BITS, FRAC_BITS>
+        &operator/=(const BaseFixedPoint<RHS_INT_BITS,
+                                         RHS_FRAC_BITS,
+                                         _RHS_128_INT_TYPE> &rhs)
+    {
+        SignedFixedPoint<INT_BITS, FRAC_BITS> res{};
+        res = *this / rhs;
+        return *this = res;
+    }
+
+
+    /*
+     * Unary negation.
+     */
+    SignedFixedPoint<INT_BITS, FRAC_BITS> operator-() const noexcept
+    {
+        SignedFixedPoint<INT_BITS, FRAC_BITS> res{};
+        res.num = -( this->get_num_sign_extended() );
+        res.apply_bit_mask_frac();
+        return res;
+    }
+
+
+    /*
+     * Display the state of the fixed point number through the retuned string.
+     * The string contains formated output for debuging purposes.
+     */
+    std::string get_state() const noexcept
+    {
+        std::stringstream ss{};
+        std::string internal = to_string_hex(this->num);
+        internal = std::string(32-internal.length(), '0') + internal;
+        internal.insert(16, 1, '|');
+        return internal;
+    }
+
+
+    /*
+     * Assignment operator and assignment constructor for fixed point numbers.
+     */
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
+    SignedFixedPoint<INT_BITS, FRAC_BITS> &
+       operator=(const BaseFixedPoint<RHS_INT_BITS,
+                                      RHS_FRAC_BITS, 
+                                      RHS_128_INT_TYPE> &rhs) noexcept
+    {
+        this->num = rhs.get_num_sign_extended();
+        this->apply_bit_mask_frac();
+        return *this;
+    }
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
+    SignedFixedPoint(const BaseFixedPoint<RHS_INT_BITS,
+                                          RHS_FRAC_BITS, 
+                                          RHS_128_INT_TYPE> &rhs) noexcept
+    {
+        this->num = rhs.get_num_sign_extended();
+        this->apply_bit_mask_frac();
+    }
+
+
+    /*
+     * Comparison operators.
+     */
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
+    bool operator==(const BaseFixedPoint<RHS_INT_BITS, 
+                                         RHS_FRAC_BITS, 
+                                         RHS_128_INT_TYPE> &rhs) const noexcept
+    {
+        return this->get_num_sign_extended() == rhs.get_num_sign_extended();
+    }
+
+
+private:
+    /*
+     * Get the sign of the number.
+     */
+    bool sign() const noexcept
+    {
+        return int128_t(0) != ( this->num & (int128_t(1) << (64+INT_BITS-1)) );
+    }
+
+    /*
+     * Returns the internal num representation sign extended, that is, num with
+     * all bits more significant than the sign bit set to the value of the sign
+     * bit.
+     */
+    int128_t get_num_sign_extended() const noexcept
+    {
+        if ( sign() )
+            return this->num | ~((int128_t(1) << (64+INT_BITS)) - 1);
+        else
+            return this->num &  ((int128_t(1) << (64+INT_BITS)) - 1);
     }
 };
 
 template <int INT_BITS, int FRAC_BITS>
-class UnsignedFixedPoint : public BaseFixedPoint<
-                           INT_BITS,FRAC_BITS,unsigned __int128>
+class UnsignedFixedPoint : public BaseFixedPoint<INT_BITS,FRAC_BITS,uint128_t>
 {
 
 };

@@ -163,7 +163,7 @@ protected:
      * Returns the internal number representation 'num', sign extended. For the
      * unsigned derived class, this method just return num.
      */
-    virtual _128_INT_TYPE get_num_sign_extended() const noexcept;
+    virtual _128_INT_TYPE get_num_sign_extended() const noexcept = 0;
 
     /*
      * Underlying data type. It will either be a signed or unsigned 128-bit
@@ -230,20 +230,28 @@ public:
      * Addition and subtraction arithmetic.
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
-    SignedFixedPoint<INT_BITS, FRAC_BITS>
-        operator+(const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,_RHS_128_INT_TYPE> &rhs) const noexcept
+    SignedFixedPoint<std::max(INT_BITS, RHS_INT_BITS) + 1, 
+                     std::max(FRAC_BITS, RHS_FRAC_BITS)>
+        operator+(const BaseFixedPoint<RHS_INT_BITS,
+                                       RHS_FRAC_BITS,
+                                       _RHS_128_INT_TYPE> &rhs) const noexcept
     {
-        SignedFixedPoint<INT_BITS, FRAC_BITS> res{};
+        constexpr int RES_INT_BITS = std::max(INT_BITS, RHS_INT_BITS) + 1;
+        constexpr int RES_FRAC_BITS = std::max(FRAC_BITS, RHS_FRAC_BITS);
+        SignedFixedPoint<RES_INT_BITS, RES_FRAC_BITS> res{};
         res.num = this->num + rhs.num;
         res.apply_bit_mask_frac();
         return res;
     }
 
     template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
-    SignedFixedPoint<INT_BITS, FRAC_BITS>
+    SignedFixedPoint<std::max(INT_BITS, RHS_INT_BITS) + 1,
+                     std::max(FRAC_BITS, RHS_FRAC_BITS)>
         operator-(const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,_RHS_128_INT_TYPE> &rhs) const noexcept
     {
-        SignedFixedPoint<INT_BITS, FRAC_BITS> res{};
+        constexpr int RES_INT_BITS = std::max(INT_BITS, RHS_INT_BITS) + 1;
+        constexpr int RES_FRAC_BITS = std::max(FRAC_BITS, RHS_FRAC_BITS);
+        SignedFixedPoint<RES_INT_BITS, RES_FRAC_BITS> res{};
         res.num = this->num - rhs.num;
         res.apply_bit_mask_frac();
         return res;
@@ -388,6 +396,41 @@ public:
     {
         return this->get_num_sign_extended() == rhs.get_num_sign_extended();
     }
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
+    bool operator!=(const BaseFixedPoint<RHS_INT_BITS, 
+                                         RHS_FRAC_BITS, 
+                                         RHS_128_INT_TYPE> &rhs) const noexcept
+    {
+        return this->get_num_sign_extended() != rhs.get_num_sign_extended();
+    }
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
+    bool operator<(const BaseFixedPoint<RHS_INT_BITS, 
+                                         RHS_FRAC_BITS, 
+                                         RHS_128_INT_TYPE> &rhs) const noexcept
+    {
+        return this->get_num_sign_extended() < rhs.get_num_sign_extended();
+    }
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
+    bool operator<=(const BaseFixedPoint<RHS_INT_BITS, 
+                                         RHS_FRAC_BITS, 
+                                         RHS_128_INT_TYPE> &rhs) const noexcept
+    {
+        return this->get_num_sign_extended() <= rhs.get_num_sign_extended();
+    }
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
+    bool operator>(const BaseFixedPoint<RHS_INT_BITS, 
+                                         RHS_FRAC_BITS, 
+                                         RHS_128_INT_TYPE> &rhs) const noexcept
+    {
+        return this->get_num_sign_extended() > rhs.get_num_sign_extended();
+    }
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
+    bool operator>=(const BaseFixedPoint<RHS_INT_BITS, 
+                                         RHS_FRAC_BITS, 
+                                         RHS_128_INT_TYPE> &rhs) const noexcept
+    {
+        return this->get_num_sign_extended() >= rhs.get_num_sign_extended();
+    }
 
 
 private:
@@ -404,7 +447,7 @@ private:
      * all bits more significant than the sign bit set to the value of the sign
      * bit.
      */
-    int128_t get_num_sign_extended() const noexcept
+    int128_t get_num_sign_extended() const noexcept override
     {
         if ( sign() )
             return this->num | ~((int128_t(1) << (64+INT_BITS)) - 1);

@@ -19,11 +19,34 @@ Two examples of fixed point represented numbers are shown in Fig. 1 and Fig. 2. 
 
 were the first template parameter dictates the number of integer bits in the fixed point number and the second template parameter dictates the number of fractional bits used to represent the fixed point number
 
-### Sizes
-| Operator | C++ usage | Resulting type | l |
-|---|---|---| -- |
-| Addition (+)   | `fixLHS<a,b> + fixRHS<c,d>` | FixedPoint<a,b> | c |
-| Subtration (-) | `fixLHS<a,b> - fixRHS<c,d>` | FixedPoint<a,b> | d |A
+## Operators
+WiseMansFixedPoint implements the four basic arithmetic operators, *addition*, *subtraction*, *multiplication* and *division*. C++ operator overloading is used such that arithmetic expressions with fixed point numbers can be used like regular C++ floating point arithmetic expressions. The following listing and table illustrates the usage of these basic operators.
 
-### To write about.
+```C++
+constexpr int int_a, int_b;         // Integer sizes
+constexpr int frac_a, frac_b;       // Fractional sizes
+SignedFixedPoint<int_a,frac_a> a;
+SignedFixedPoint<int_b,frac_b> b;
+```
+| Operation | Resulting integer size    | Resulting fractional size | Can overflow? |
+|-----------|---------------------------|---------------------------|---------------|
+| `a + b`   | `std::max(int_a,int_b)+1` | `std::max(frac_a,frac_b)` | No            |
+| `a - b`   | `std::max(int_a,int_b)+1` | `std::max(frac_a,frac_b)` | No            |
+| `a * b`   | `int_a + int_b`           | `frac_a + frac_b`         | No            |
+| `a / b`   | `int_a`                   | `frac_a`                  | Yes           |
+
+Note especially that for all operators, except the division operator, the resulting fixed point number will not over-/underflow until an assignment operation possibly over-/underflows. The following example illustrates that.
+
+```C++
+SignedFixedPoint<4,3> a{ 7.125 };
+SignedFixedPoint<3,3> b{ 4.250 };
+a = a + b;
+  ^   ^
+  |   |
+  |   | <-- <5,3>{ 11.375 }
+  |
+  | < -- <4,3>{ -5.375 } (overflow here!!)
+```
+
+# To write about.
  * Correct rounding when using floating point constructor.

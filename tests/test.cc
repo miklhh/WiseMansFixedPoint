@@ -8,6 +8,7 @@
 template <int INT_BITS, int FRAC_BITS>
 using FixedPoint = SignedFixedPoint<INT_BITS, FRAC_BITS>;
 
+
 TEST_CASE("Floating-point constructor")
 {
     /*
@@ -84,6 +85,7 @@ TEST_CASE("Floating-point constructor")
 
 }
 
+
 TEST_CASE("Addition tests")
 {
     /*
@@ -94,7 +96,7 @@ TEST_CASE("Addition tests")
         FixedPoint<10,10> fix_a{3.25};
         FixedPoint<11,11> fix_b{7.50};
         result << fix_a + fix_b;
-        REQUIRE(result.str() == std::string("10 + 768/1024"));
+        REQUIRE(result.str() == std::string("10 + 1536/2048"));
     }
     {
         std::stringstream result{};
@@ -113,7 +115,7 @@ TEST_CASE("Addition tests")
         FixedPoint<6,12> fix_b{ 7.75 };
         result <<  fix_a + fix_b << "|";
         result << (fix_a += fix_b);
-        REQUIRE(result.str() == std::string("4 + 512/1024|4 + 512/1024"));
+        REQUIRE(result.str() == std::string("4 + 2048/4096|4 + 512/1024"));
     }
     {
         std::stringstream result{};
@@ -121,7 +123,7 @@ TEST_CASE("Addition tests")
         FixedPoint<6,12> fix_b{ -7.75 };
         result <<  fix_a + fix_b << "|";
         result << (fix_a += fix_b);
-        REQUIRE(result.str() == std::string("-5 + 512/1024|-5 + 512/1024"));
+        REQUIRE(result.str() == std::string("-5 + 2048/4096|-5 + 512/1024"));
     }
 
     /*
@@ -133,7 +135,7 @@ TEST_CASE("Addition tests")
         FixedPoint<6,12> fix_b{ 7.75 };
         result <<  fix_a -  fix_b << "|";
         result << (fix_a -= fix_b);
-        REQUIRE(result.str() == std::string("-12 + 768/1024|-12 + 768/1024"));
+        REQUIRE(result.str() == std::string("-12 + 3072/4096|-12 + 768/1024"));
     }
     {
         std::stringstream result{};
@@ -141,10 +143,20 @@ TEST_CASE("Addition tests")
         FixedPoint<6,12> fix_b{ -9.75 };
         result <<  fix_a -  fix_b << "|";
         result << (fix_a -= fix_b);
-        REQUIRE(result.str() == std::string("15 + 256/1024|15 + 256/1024"));
+        REQUIRE(result.str() == std::string("15 + 1024/4096|15 + 256/1024"));
+    }
+
+    /*
+     * Immediate result of addition and subtraction should not overflow.
+     */
+    {
+        std::stringstream result{};
+        FixedPoint<4,2> fix_a{ 7.25 };
+        FixedPoint<5,1> fix_b{ 15.50 };
+        result <<  fix_a +  fix_b;;
+        REQUIRE(result.str() == std::string("22 + 3/4"));
     }
 }
-
 
 
 TEST_CASE("Overflow tests")
@@ -155,18 +167,19 @@ TEST_CASE("Overflow tests")
         FixedPoint<1,2> fix_b{ 0.25 };
 
         // Result = 40, trucanted to 8.
-        //result << fix_a / fix_b;
-        //REQUIRE( result.str() == std::string("8 + 0/32") );
+        result << fix_a / fix_b;
+        REQUIRE( result.str() == std::string("8 + 0/32") );
     }
     {
         std::stringstream result{};
-        FixedPoint<10,10> fix_a{ -511.0 };
-        FixedPoint<10,10> fix_b{    1.0 };
-        FixedPoint<10,10> fix_c{    2.0 };
-        result << (fix_a - fix_b) << "|" << (fix_a - fix_c);
+        FixedPoint<10,10> fix_a{ -511.0 }, fix_b{ 1.0 }, fix_c{ 2.0 };
+        FixedPoint<10,10> res_a{ fix_a - fix_b };
+        FixedPoint<10,10> res_b{ fix_a - fix_c };
+        result << res_a << "|" << res_b;
         REQUIRE( result.str() == std::string("-512 + 0/1024|511 + 0/1024") );
     }
 }
+
 
 TEST_CASE("Instance going out of scope should reset value.")
 {
@@ -185,6 +198,7 @@ TEST_CASE("Assigment of FixedPoint values (just need to compile).")
     FixedPoint<10,10> fix_c = fix_a * fix_b;
     fix_c = fix_a * fix_b;
 }
+
 
 TEST_CASE("Unary negation.")
 {
@@ -322,6 +336,7 @@ TEST_CASE("Multiplication of Fixed Point Numbers")
 
 }
 
+
 TEST_CASE("Fixed point division")
 {
     /*
@@ -360,6 +375,7 @@ TEST_CASE("Fixed point division")
         REQUIRE(result.str() == std::string("2 + 1973790/8388608"));
     }
 }
+
 
 TEST_CASE("Approximate pi using Leibniz formula")
 {
@@ -573,70 +589,50 @@ TEST_CASE("Multiplication performance.")
     std::cout << double(time_fix.count()) / double(time_float.count()) << std::endl;
 }
 
-//TEST_CASE("Simple comparison test.")
-//{
-//   FixedPoint<10,10> a { 5.125 };
-//   FixedPoint<20,23> b { 5.125 };
-//   FixedPoint<4,20>  c { 2.0095 };
-//   FixedPoint<2,3>   d { 0.0 };
-//   FixedPoint<9,7>   e { 0.0 };
-//   REQUIRE(a == b);
-//   REQUIRE( (c < a && c <= a && c < b && c <= b) );
-//   REQUIRE( (!(d < e) && !(d > e)) );
-//   REQUIRE( (d <= e && d >= e) );
-//   REQUIRE( (a >= d && a > e) );
-//}
-//
-//TEST_CASE("Assignment where the wordlength changes.")
-//{
-//    /*
-//     * Test constructors.
-//     */
-//    {
-//        FixedPoint<10,10> a{ 4.75 }, b{ -13.0625 };
-//        FixedPoint<14,14> a_longer{a}, b_longer{b};
-//        REQUIRE( (a == a_longer && b == b_longer) );
-//    }
-//    {
-//        FixedPoint<14,14> a{ 4.75 }, b{ -13.0625 };
-//        FixedPoint<10,10> a_longer{a}, b_longer{b};
-//        REQUIRE( (a == a_longer && b == b_longer) );
-//    }
-//
-//    /*
-//     * Test assignment operators.
-//     */
-//    {
-//        FixedPoint<10,10> a{ 4.75 }, b{ -13.0625 };
-//        FixedPoint<14,14> a_longer{}, b_longer{};
-//        a_longer = a;
-//        b_longer = b;
-//        REQUIRE( (a == a_longer && b == b_longer) );
-//        a = FixedPoint<1,0>(0); a = a_longer;
-//        b = FixedPoint<1,0>(0); b = b_longer;
-//        REQUIRE( (a == a_longer && b == b_longer) );
-//    }
-//}
-//
-//TEST_CASE("Overflow tests")
-//{
-//    {
-//        std::stringstream result{};
-//        FixedPoint<5,5> fix_a{ 10.0 };
-//        FixedPoint<1,2> fix_b{ 0.25 };
-//
-//        // Result = 40, trucanted to 8.
-//        result << fix_a / fix_b;
-//        REQUIRE( result.str() == std::string("8 + 0/32") );
-//    }
-//    {
-//        std::stringstream result{};
-//        FixedPoint<10,10> fix_a{ -511.0 };
-//        FixedPoint<10,10> fix_b{    1.0 };
-//        FixedPoint<10,10> fix_c{    2.0 };
-//
-//        result << (fix_a - fix_b) << "|" << (fix_a - fix_c);
-//        REQUIRE( result.str() == std::string("-512 + 0/1024|511 + 0/1024") );
-//    }
-//}
+
+TEST_CASE("Simple comparison test.")
+{
+   FixedPoint<10,10> a { 5.125 };
+   FixedPoint<20,23> b { 5.125 };
+   FixedPoint<4,20>  c { 2.0095 };
+   FixedPoint<2,3>   d { 0.0 };
+   FixedPoint<9,7>   e { 0.0 };
+   REQUIRE(a == b);
+   REQUIRE( (c < a && c <= a && c < b && c <= b) );
+   REQUIRE( (!(d < e) && !(d > e)) );
+   REQUIRE( (d <= e && d >= e) );
+   REQUIRE( (a >= d && a > e) );
+}
+
+
+TEST_CASE("Assignment where the wordlength changes.")
+{
+    /*
+     * Test constructors.
+     */
+    {
+        FixedPoint<10,10> a{ 4.75 }, b{ -13.0625 };
+        FixedPoint<14,14> a_longer{a}, b_longer{b};
+        REQUIRE( (a == a_longer && b == b_longer) );
+    }
+    {
+        FixedPoint<14,14> a{ 4.75 }, b{ -13.0625 };
+        FixedPoint<10,10> a_longer{a}, b_longer{b};
+        REQUIRE( (a == a_longer && b == b_longer) );
+    }
+
+    /*
+     * Test assignment operators.
+     */
+    {
+        FixedPoint<10,10> a{ 4.75 }, b{ -13.0625 };
+        FixedPoint<14,14> a_longer{}, b_longer{};
+        a_longer = a;
+        b_longer = b;
+        REQUIRE( (a == a_longer && b == b_longer) );
+        a = FixedPoint<1,0>(0); a = a_longer;
+        b = FixedPoint<1,0>(0); b = b_longer;
+        REQUIRE( (a == a_longer && b == b_longer) );
+    }
+}
 

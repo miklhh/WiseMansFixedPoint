@@ -78,7 +78,7 @@ public:
 		buffer for the integer value
 		  table[0] - the lowest word of the value
 	*/
-	uint table[value_size];
+	uint table[value_size] = {0};
 
 
 

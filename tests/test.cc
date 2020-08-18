@@ -192,6 +192,7 @@ TEST_CASE("Instance going out of scope should reset value.")
     }
 }
 
+
 TEST_CASE("Assigment of FixedPoint values (just need to compile).")
 {
     FixedPoint<10,10> fix_a{}, fix_b{};
@@ -333,7 +334,6 @@ TEST_CASE("Multiplication of Fixed Point Numbers")
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("1048576 + 0/16384"));
     }
-
 }
 
 
@@ -374,6 +374,79 @@ TEST_CASE("Fixed point division")
         result << fix_a/fix_b;
         REQUIRE(result.str() == std::string("2 + 1973790/8388608"));
     }
+}
+
+
+TEST_CASE("Rounding test.")
+{
+    {
+        std::stringstream result{};
+        FixedPoint<5,2> fix_a{ 10.5 };
+        FixedPoint<5,5> fix_b{ 0.1875 };
+        FixedPoint<5,2> res{ fix_a + fix_b };
+        result << res;
+        REQUIRE(result.str() == std::string("10 + 2/4"));
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<5,2> fix_a{ 10.5 };
+        FixedPoint<5,5> fix_b{ 0.1875 };
+        FixedPoint<5,2> res{ rnd<5,2>(fix_a + fix_b) };
+        result << res;
+        REQUIRE(result.str() == std::string("10 + 3/4"));
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<5,2> fix_a{ 10.5 };
+        FixedPoint<5,5> fix_b{ 0.1875 };
+        FixedPoint<5,2> res{};
+        res.rnd( fix_a + fix_b );
+        result << res;
+        REQUIRE(result.str() == std::string("10 + 3/4"));
+    }
+}
+
+
+TEST_CASE("Test of negative wordlengths.")
+{
+    FixedPoint<-4,10> fix_a{ 0.50 };
+    //std::cout << fix_a.get_state() << std::endl;
+    //std::cout << fix_a << std::endl;
+}
+
+
+TEST_CASE("Saturation testing.")
+{
+    {
+        std::stringstream result{};
+        FixedPoint<10,5> fix_a{ 204.96875 };
+        FixedPoint<10,5> fix_b{ -93.96875 };
+        result << sat<4,4>(fix_a) << "|" << sat<4,5>(fix_a);
+        REQUIRE(result.str() == std::string("7 + 15/16|7 + 31/32"));
+        result.str(std::string()); result.clear();
+        result << sat<5,4>(fix_a) << "|" << sat<5,5>(fix_a);
+        REQUIRE(result.str() == std::string("15 + 15/16|15 + 31/32"));
+        result.str(std::string()); result.clear();
+        result << sat<4,4>(fix_b) << "|" << sat<4,5>(fix_b);
+        REQUIRE(result.str() == std::string("-8 + 0/16|-8 + 0/32"));
+        result.str(std::string()); result.clear();
+        result << sat<5,4>(fix_b) << "|" << sat<5,5>(fix_b);
+        REQUIRE(result.str() == std::string("-16 + 0/16|-16 + 0/32"));
+    }
+}
+
+
+TEST_CASE("Breakage of non correctly sign extended numbers.")
+{
+    /*
+     * This test only exists in due to a bug found in early code which happend
+     * due to some optimizations that was 'to good' to work.
+     */
+    std::stringstream result{};
+    FixedPoint<3,3> fix_a{ 24.00625 };  // Truncated to 0.0
+    FixedPoint<10,4> fix_b{ 13.5 };
+    result << (fix_b += fix_a);
+    REQUIRE(result.str() == std::string("13 + 8/16"));
 }
 
 

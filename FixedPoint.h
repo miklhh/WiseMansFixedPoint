@@ -21,7 +21,6 @@
 #ifndef _WISE_MANS_FIXED_POINT_H
 #define _WISE_MANS_FIXED_POINT_H
 
-
 #include "ttmath/ttmath.h"
 
 #include <string>
@@ -140,49 +139,11 @@ public:
 
 
     /*
-     * Friend declaration of comparison operators for fixed point numbers.
+     * Functions for getting the underlying data type.
      */
-    template<
-        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
-        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
-    friend bool operator==(
-            const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
-            const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs);
+    _128_INT_TYPE get_num() const noexcept { return num; }
 
-    template<
-        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
-        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
-    friend bool operator!=(
-            const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
-            const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs);
-
-    template<
-        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
-        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
-    friend bool operator<(
-            const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
-            const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs);
-
-    template<
-        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
-        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
-    friend bool operator<=(
-            const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
-            const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs);
-
-    template<
-        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
-        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
-    friend bool operator>(
-            const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
-            const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs);
-
-    template<
-        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
-        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
-    friend bool operator>=(
-            const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
-            const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs);
+    virtual _128_INT_TYPE get_num_sign_extended() const noexcept = 0;
 
 
     /*
@@ -251,14 +212,6 @@ protected:
     {
         num += _128_INT_TYPE(1) << (63-FRAC_BITS);
     }
-
-
-    /*
-     * Returns the internal number representation 'num' sign extended. For the
-     * unsigned derived class, this method just return num with all bits greater
-     * than INT_BITS zeroed.
-     */
-    virtual _128_INT_TYPE get_num_sign_extended() const noexcept = 0;
 
 
     /*
@@ -414,14 +367,6 @@ public:
     template<int _INT_BITS, int _FRAC_BITS, template<int,int> class RHS>
     friend RHS<_INT_BITS,_FRAC_BITS> operator-(const RHS<_INT_BITS,_FRAC_BITS> &rhs);
 
-private:
-    /*
-     * Get the sign of the number.
-     */
-    bool sign() const noexcept
-    {
-        return int128_t(0) != ( this->num & (int128_t(1) << (64+INT_BITS-1)) );
-    }
 
     /*
      * Returns the internal num representation sign extended, that is, num with
@@ -434,6 +379,16 @@ private:
             return this->num | ~((int128_t(1) << (64+INT_BITS)) - 1);
         else
             return this->num &  ((int128_t(1) << (64+INT_BITS)) - 1);
+    }
+
+
+private:
+    /*
+     * Get the sign of the number.
+     */
+    bool sign() const noexcept
+    {
+        return int128_t(0) != ( this->num & (int128_t(1) << (64+INT_BITS-1)) );
     }
 };
 
@@ -584,7 +539,7 @@ bool operator==(
         const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs)
 {
-    return lhs.num == rhs.num;
+    return lhs.get_num() == rhs.get_num();
 }
 
 template<
@@ -594,7 +549,7 @@ bool operator!=(
         const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs)
 {
-    return lhs.num != rhs.num;
+    return lhs.get_num() != rhs.get_num();
 }
 
 template<
@@ -604,7 +559,7 @@ bool operator<(
         const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs)
 {
-    return lhs.num < rhs.num;
+    return lhs.get_num() < rhs.get_num();
 }
 
 template<
@@ -614,7 +569,7 @@ bool operator<=(
         const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs)
 {
-    return lhs.num <= rhs.num;
+    return lhs.get_num() <= rhs.get_num();
 }
 
 template<
@@ -624,7 +579,7 @@ bool operator>(
         const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs)
 {
-    return lhs.num > rhs.num;
+    return lhs.get_num() > rhs.get_num();
 }
 
 template<
@@ -634,7 +589,7 @@ bool operator>=(
         const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs)
 {
-    return lhs.num >= rhs.num;
+    return lhs.get_num() >= rhs.get_num();
 }
 
 

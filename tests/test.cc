@@ -579,13 +579,13 @@ TEST_CASE("Addition performance.")
      */
     std::chrono::microseconds time_fix{};
     {
-        FixedPoint<64,63> fix_res{ 0.0 };
+        FixedPoint<63,63> fix_res{ 0.0 };
 
         auto t1 = high_resolution_clock::now();
         for (int i=0; i<ITERATIONS; ++i)
         {
-            fix_res += FixedPoint<64,63>{ 12.345678 };
-            fix_res -= FixedPoint<64,63>{ 12.345677 };
+            fix_res += FixedPoint<63,63>{ 12.345678 };
+            fix_res -= FixedPoint<63,63>{ 12.345677 };
         }
         auto t2 = high_resolution_clock::now();
 
@@ -703,8 +703,8 @@ TEST_CASE("Assignment where the wordlength changes.")
         a_longer = a;
         b_longer = b;
         REQUIRE( (a == a_longer && b == b_longer) );
-        a = FixedPoint<1,0>(0); a = a_longer;
-        b = FixedPoint<1,0>(0); b = b_longer;
+        a = FixedPoint<1,0>{0}; a = a_longer;
+        b = FixedPoint<1,0>{0}; b = b_longer;
         REQUIRE( (a == a_longer && b == b_longer) );
     }
 }

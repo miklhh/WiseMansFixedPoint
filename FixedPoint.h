@@ -21,12 +21,12 @@
 #ifndef _WISE_MANS_FIXED_POINT_H
 #define _WISE_MANS_FIXED_POINT_H
 
+
 #include "ttmath/ttmath.h"
 
 #include <string>
 #include <sstream>
 #include <cmath>
-#include <iostream> // DEBUGING!
 #include <algorithm>
 #include <type_traits>
 #include <cstdint>
@@ -42,6 +42,15 @@ using int256_t = ttmath::Int<4>;
 using uint128_t = ttmath::UInt<2>;
 using uint256_t = ttmath::UInt<4>;
 using float64_t = ttmath::Big<11,52>; // TTMath IEEE 754 double floating point.
+
+
+/*
+ * Compile time template structures for retrieving the extended integer size of
+ * the underlying signed and unsigned integer types.
+ */
+template<typename T> struct extend_int {};
+template<> struct extend_int<int128_t> { using type = int256_t; };
+template<> struct extend_int<uint128_t> { using type = uint256_t; };
 
 
 /*
@@ -68,18 +77,19 @@ static inline std::string to_string_hex(const ttmath::Int<_N> &a)
 
 
 /*
- * Fixed point base type for common operations between signed and unsigned
- * types.
+ * Fixed point base type for common operations between signed and unsigned fixed
+ * point types.
  */
 template <int INT_BITS, int FRAC_BITS, typename _128_INT_TYPE>
 class BaseFixedPoint
 {
 public:
+
     /*
      * The length of the integer part of the fixed point number should be less
      * than or equal to 64 bits due to the underlying 128 bit data type. For the
-     * fractional part the same thingn holds, but one extra bit is required to
-     * guaranteeing correct rounding when propriate.
+     * fractional part the same condition holds, but one extra bit is required 
+     * to guaranteeing correct rounding when needed.
      */
     static_assert(INT_BITS <= 64,
             "Integer bits need to be less than or equal to 64 bits.");
@@ -88,7 +98,104 @@ public:
     static_assert(INT_BITS + FRAC_BITS > 0,
             "Need at least one bit of representation.");
 
+    /*
+     * Friend declaration of addition and subtraction arithmetic operators on fixed 
+     * point numbers.
+     */
+    template<
+        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+    LHS<std::max(LHS_INT_BITS,RHS_INT_BITS)+1,std::max(LHS_FRAC_BITS,RHS_FRAC_BITS)>
+    friend operator+(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+              const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
+
+    template<
+        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+    LHS<std::max(LHS_INT_BITS,RHS_INT_BITS)+1,std::max(LHS_FRAC_BITS,RHS_FRAC_BITS)>
+    friend operator-(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+              const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
+
+    template<int _INT_BITS, int _FRAC_BITS, template<int,int> class RHS>
+    friend RHS<_INT_BITS,_FRAC_BITS> operator-(const RHS<_INT_BITS,_FRAC_BITS> &rhs);
+
+
+    /*
+     * Friend declaration of multiplication and division arithmetic operators on 
+     * fixed point numbers.
+     */
+    template<
+        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+    friend LHS<LHS_INT_BITS+RHS_INT_BITS,LHS_FRAC_BITS+RHS_FRAC_BITS>
+    operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+              const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
+
+    template<
+        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+    friend LHS<LHS_INT_BITS,LHS_FRAC_BITS>
+    operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+              const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
+
+
+    /*
+     * Friend declaration of comparison operators for fixed point numbers.
+     */
+    template<
+        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+    friend bool operator==(
+            const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
+            const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs);
+
+    template<
+        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+    friend bool operator!=(
+            const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
+            const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs);
+
+    template<
+        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+    friend bool operator<(
+            const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
+            const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs);
+
+    template<
+        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+    friend bool operator<=(
+            const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
+            const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs);
+
+    template<
+        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+    friend bool operator>(
+            const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
+            const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs);
+
+    template<
+        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+    friend bool operator>=(
+            const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
+            const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs);
+
+
+    /*
+     * Friend declaration of rounding of fixed point numbers.
+     */
+    template<
+        int LHS_INT_BITS, int LHS_FRAC_BITS,
+        int RHS_INT_BITS, int RHS_FRAC_BITS, template<int,int> class RHS>
+    friend RHS<LHS_INT_BITS,LHS_FRAC_BITS> rnd(const RHS<RHS_INT_BITS, RHS_FRAC_BITS> &rhs);
+
+
 protected:
+
     /*
      * Helper function for retrieving a string of the fixed point fractional 
      * part on quotient form.
@@ -159,6 +266,7 @@ protected:
      * integer.
      */
     _128_INT_TYPE num{};
+    using int_type = _128_INT_TYPE;
 
 
     /*
@@ -181,6 +289,7 @@ template <int INT_BITS, int FRAC_BITS>
 class SignedFixedPoint : public BaseFixedPoint<INT_BITS,FRAC_BITS,int128_t>
 {
 public:
+
     SignedFixedPoint() = default;
 
 
@@ -216,145 +325,6 @@ public:
 
         // Append fractional part.
         return integer_str + " + " + this->get_frac_quotient();
-    }
-
-
-    /*
-     * Addition and subtraction arithmetic.
-     */
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
-    SignedFixedPoint<std::max(INT_BITS, RHS_INT_BITS) + 1, 
-                     std::max(FRAC_BITS, RHS_FRAC_BITS)>
-        operator+(const BaseFixedPoint<RHS_INT_BITS,
-                                       RHS_FRAC_BITS,
-                                       _RHS_128_INT_TYPE> &rhs) const noexcept
-    {
-        // No need to sign extend and mask. Result width guarantees correctness.
-        constexpr int RES_INT_BITS = std::max(INT_BITS, RHS_INT_BITS) + 1;
-        constexpr int RES_FRAC_BITS = std::max(FRAC_BITS, RHS_FRAC_BITS);
-        SignedFixedPoint<RES_INT_BITS, RES_FRAC_BITS> res{};
-        res.num = this->num + rhs.num;
-        return res;
-    }
-
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
-    SignedFixedPoint<std::max(INT_BITS, RHS_INT_BITS) + 1,
-                     std::max(FRAC_BITS, RHS_FRAC_BITS)>
-        operator-(const BaseFixedPoint<RHS_INT_BITS,
-                                       RHS_FRAC_BITS,
-                                       _RHS_128_INT_TYPE> &rhs) const noexcept
-    {
-        // No need to sign extend and mask. Result width guarantees correctness.
-        constexpr int RES_INT_BITS = std::max(INT_BITS, RHS_INT_BITS) + 1;
-        constexpr int RES_FRAC_BITS = std::max(FRAC_BITS, RHS_FRAC_BITS);
-        SignedFixedPoint<RES_INT_BITS, RES_FRAC_BITS> res{};
-        res.num = this->num - rhs.num;
-        return res;
-    }
-
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
-    SignedFixedPoint<INT_BITS, FRAC_BITS>
-        &operator+=(const BaseFixedPoint<RHS_INT_BITS,
-                                         RHS_FRAC_BITS,
-                                         _RHS_128_INT_TYPE> &rhs) noexcept
-    {
-        // Sign extension and masking needed due to uncorrect result width.
-        this->num += rhs.num;
-        this->num = this->get_num_sign_extended();
-        this->apply_bit_mask_frac();
-        return *this;
-    }
-
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
-    SignedFixedPoint<INT_BITS, FRAC_BITS>
-        &operator-=(const BaseFixedPoint<RHS_INT_BITS,
-                                         RHS_FRAC_BITS,
-                                         _RHS_128_INT_TYPE> &rhs) noexcept
-    {
-        // Sign extension and masking needed due to uncorrect result width.
-        this->num -= rhs.num;
-        this->apply_bit_mask_frac();
-        this->num = this->get_num_sign_extended();
-        return *this;
-    }
-
-
-    /*
-     * Multiplication and division airthmetic. Note that, just like in VHDL and
-     * Verilog, the result of <a,b>*<c,d> = <a+c,b+d>. Using operator*= will 
-     * of course result in a fixed point number of word length equal to the left
-     * hand side. Like wise, to conform with the VHDL and Verilog way of doing
-     * division, the result of <a,b>/<c,d> = <a,b>.
-     */
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
-    SignedFixedPoint<INT_BITS+RHS_INT_BITS, FRAC_BITS+RHS_FRAC_BITS>
-        operator*(const BaseFixedPoint<RHS_INT_BITS,
-                                       RHS_FRAC_BITS,
-                                       _RHS_128_INT_TYPE> &rhs) const noexcept
-    {
-        // No need to sign extend and mask. Result width guarantees correctness.
-        SignedFixedPoint<INT_BITS+RHS_INT_BITS, FRAC_BITS+RHS_FRAC_BITS> res{};
-        int256_t long_lhs = this->num;
-        int256_t long_rhs = rhs.num;
-        int256_t long_res = long_lhs * long_rhs;
-        long_res >>= 64;
-        res.num = long_res;
-        return res;
-    }
-
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
-    SignedFixedPoint<INT_BITS, FRAC_BITS>
-        &operator*=(const BaseFixedPoint<RHS_INT_BITS,
-                                         RHS_FRAC_BITS,
-                                         _RHS_128_INT_TYPE> &rhs) noexcept
-    {
-        // Sign extension and masking is performed in assigment operator.
-        SignedFixedPoint<INT_BITS, FRAC_BITS> res{};
-        res = *this * rhs;
-        return *this = res;
-    }
-
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
-    SignedFixedPoint<INT_BITS, FRAC_BITS>
-        operator/(const BaseFixedPoint<RHS_INT_BITS,
-                                       RHS_FRAC_BITS,
-                                       _RHS_128_INT_TYPE> &rhs) const
-    {
-        // Division needs sign extension and masking to guarantee correctenss.
-        SignedFixedPoint<INT_BITS+RHS_INT_BITS, FRAC_BITS+RHS_FRAC_BITS> res{};
-        int256_t long_lhs = this->num;
-        int256_t long_rhs = rhs.num;
-        long_lhs <<= 128;
-        int256_t long_res = long_lhs / long_rhs;
-        long_res >>= 64;
-        res.num = long_res;
-        res.num = res.get_num_sign_extended();
-        res.apply_bit_mask_frac();
-        return res;
-    }
-
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename _RHS_128_INT_TYPE>
-    SignedFixedPoint<INT_BITS, FRAC_BITS>
-        &operator/=(const BaseFixedPoint<RHS_INT_BITS,
-                                         RHS_FRAC_BITS,
-                                         _RHS_128_INT_TYPE> &rhs)
-    {
-        SignedFixedPoint<INT_BITS, FRAC_BITS> res{};
-        res = *this / rhs;
-        return *this = res;
-    }
-
-
-    /*
-     * Unary negation.
-     */
-    SignedFixedPoint<INT_BITS, FRAC_BITS> operator-() const noexcept
-    {
-        SignedFixedPoint<INT_BITS, FRAC_BITS> res{};
-        res.num = -( this->get_num_sign_extended() );
-        res.num = res.get_num_sign_extended();
-        res.apply_bit_mask_frac();
-        return res;
     }
 
 
@@ -397,54 +367,7 @@ public:
 
 
     /*
-     * Comparison operators.
-     */
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
-    bool operator==(const BaseFixedPoint<RHS_INT_BITS, 
-                                         RHS_FRAC_BITS, 
-                                         RHS_128_INT_TYPE> &rhs) const noexcept
-    {
-        return this->get_num_sign_extended() == rhs.get_num_sign_extended();
-    }
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
-    bool operator!=(const BaseFixedPoint<RHS_INT_BITS, 
-                                         RHS_FRAC_BITS, 
-                                         RHS_128_INT_TYPE> &rhs) const noexcept
-    {
-        return this->get_num_sign_extended() != rhs.get_num_sign_extended();
-    }
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
-    bool operator<(const BaseFixedPoint<RHS_INT_BITS, 
-                                         RHS_FRAC_BITS, 
-                                         RHS_128_INT_TYPE> &rhs) const noexcept
-    {
-        return this->get_num_sign_extended() < rhs.get_num_sign_extended();
-    }
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
-    bool operator<=(const BaseFixedPoint<RHS_INT_BITS, 
-                                         RHS_FRAC_BITS, 
-                                         RHS_128_INT_TYPE> &rhs) const noexcept
-    {
-        return this->get_num_sign_extended() <= rhs.get_num_sign_extended();
-    }
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
-    bool operator>(const BaseFixedPoint<RHS_INT_BITS, 
-                                         RHS_FRAC_BITS, 
-                                         RHS_128_INT_TYPE> &rhs) const noexcept
-    {
-        return this->get_num_sign_extended() > rhs.get_num_sign_extended();
-    }
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
-    bool operator>=(const BaseFixedPoint<RHS_INT_BITS, 
-                                         RHS_FRAC_BITS, 
-                                         RHS_128_INT_TYPE> &rhs) const noexcept
-    {
-        return this->get_num_sign_extended() >= rhs.get_num_sign_extended();
-    }
-
-
-    /*
-     * Rounding method.
+     * Assignment from other fixed point number with proper rounind.
      */
     template <int RHS_INT_BITS,int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
     SignedFixedPoint<INT_BITS, FRAC_BITS> 
@@ -455,6 +378,7 @@ public:
         this->num = rhs.num;
         this->round();
         this->apply_bit_mask_frac();
+        this->num = this->get_num_sign_extended();
         return *this;
     }
 
@@ -468,14 +392,27 @@ public:
     /*
      * Friend functions for rounding and saturation.
      */
-    template <int LHS_INT,int LHS_FRAC,int RHS_INT,int RHS_FRAC>
-    friend SignedFixedPoint<LHS_INT, LHS_FRAC> rnd(
-                const SignedFixedPoint<RHS_INT, RHS_FRAC> &rhs);
+    template<
+        int LHS_INT_BITS, int LHS_FRAC_BITS,
+        int RHS_INT_BITS, int RHS_FRAC_BITS, template<int,int> class RHS>
+    friend RHS<LHS_INT_BITS,LHS_FRAC_BITS> rnd(const RHS<RHS_INT_BITS, RHS_FRAC_BITS> &rhs);
 
     template <int LHS_INT,int LHS_FRAC,int RHS_INT,int RHS_FRAC>
     friend SignedFixedPoint<LHS_INT, LHS_FRAC> sat(
                 const SignedFixedPoint<RHS_INT, RHS_FRAC> &rhs);
 
+    /*
+     * Friend arithmetic.
+     */
+    template<
+        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+    friend LHS<LHS_INT_BITS,LHS_FRAC_BITS>
+    operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+              const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
+
+    template<int _INT_BITS, int _FRAC_BITS, template<int,int> class RHS>
+    friend RHS<_INT_BITS,_FRAC_BITS> operator-(const RHS<_INT_BITS,_FRAC_BITS> &rhs);
 
 private:
     /*
@@ -501,6 +438,9 @@ private:
 };
 
 
+/*
+ * Unsigned fixed point data type.
+ */
 template <int INT_BITS, int FRAC_BITS>
 class UnsignedFixedPoint : public BaseFixedPoint<INT_BITS,FRAC_BITS,uint128_t>
 {
@@ -512,25 +452,215 @@ class UnsignedFixedPoint : public BaseFixedPoint<INT_BITS,FRAC_BITS,uint128_t>
 
 
 /*
- * Print-out to C++ stream object on the form '<int> + <frac>/<2^<frac_bits>'.
- * Good for debuging'n'stuff.
+ * Addition operator for fixed point numbers.
  */
-template <int INT_BITS, int FRAC_BITS>
-std::ostream &operator<<(
-        std::ostream &os, const SignedFixedPoint<INT_BITS, FRAC_BITS> &rhs)
+template<
+    int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+    int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+LHS<std::max(LHS_INT_BITS,RHS_INT_BITS)+1,std::max(LHS_FRAC_BITS,RHS_FRAC_BITS)>
+operator+(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+          const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
 {
-    return os << rhs.to_string();
+    // No sign extension or masking needed due to correct word length of result.
+    constexpr int RES_INT_BITS = std::max(LHS_INT_BITS,RHS_INT_BITS)+1;
+    constexpr int RES_FRAC_BITS = std::max(LHS_FRAC_BITS,RHS_FRAC_BITS);
+    LHS<RES_INT_BITS,RES_FRAC_BITS> res{};
+    res.num = lhs.num + rhs.num;
+    return res;
+}
+
+template<
+    int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+    int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+LHS<LHS_INT_BITS,LHS_FRAC_BITS> &
+operator+=(LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+           const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
+{
+    // Sign extension and masking is performed in assigment operator.
+    return lhs = lhs + rhs;
 }
 
 
 /*
- * Rounding for signed fixed point numbers.
+ * Subtraction operator for fixed point numbers.
  */
-template <int LHS_INT_BITS,int LHS_FRAC_BITS,int RHS_INT_BITS,int RHS_FRAC_BITS>
-SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> rnd(
-        const SignedFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs)
+template<
+    int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+    int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+LHS<std::max(LHS_INT_BITS,RHS_INT_BITS)+1,std::max(LHS_FRAC_BITS,RHS_FRAC_BITS)>
+operator-(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+          const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
 {
-    SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> res{};
+    // No sign extension or masking needed due to correct word length of result.
+    constexpr int RES_INT_BITS = std::max(LHS_INT_BITS,RHS_INT_BITS)+1;
+    constexpr int RES_FRAC_BITS = std::max(LHS_FRAC_BITS,RHS_FRAC_BITS);
+    LHS<RES_INT_BITS,RES_FRAC_BITS> res{};
+    res.num = lhs.num - rhs.num;
+    return res;
+}
+
+template<
+    int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+    int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+LHS<LHS_INT_BITS,LHS_FRAC_BITS> &
+operator-=(LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+           const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
+{
+    // Sign extension and masking is performed in assigment operator.
+    return lhs = lhs - rhs;
+}
+
+
+/*
+ * Multiplication operator for fixed point numbers.
+ */
+template<
+    int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+    int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+LHS<LHS_INT_BITS+RHS_INT_BITS,LHS_FRAC_BITS+RHS_FRAC_BITS>
+operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+          const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
+{
+    // No sign extension or masking needed due to correct word length of result.
+    LHS<LHS_INT_BITS+RHS_INT_BITS, LHS_FRAC_BITS+RHS_FRAC_BITS> res{};
+    typename extend_int<typename LHS<1,0>::int_type>::type long_lhs = lhs.num;
+    typename extend_int<typename LHS<1,0>::int_type>::type long_rhs = rhs.num;
+    res.num = (long_lhs * long_rhs) >> 64;
+    return res;
+}
+
+template<
+    int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+    int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+LHS<LHS_INT_BITS,LHS_FRAC_BITS> &
+operator*=(LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+           const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
+{
+    // Sign extension and masking is performed in assigment operator.
+    return lhs = lhs * rhs;
+}
+
+
+/*
+ * Division operator for fixed point numbers.
+ */
+template<
+    int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+    int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+LHS<LHS_INT_BITS,LHS_FRAC_BITS>
+operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+          const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
+{
+    // Sign extension and masking needed due to uncorrect result word length.
+    using long_int = typename extend_int<typename LHS<1,0>::int_type>::type;
+    LHS<LHS_INT_BITS, LHS_FRAC_BITS> res{};
+    long_int long_lhs = lhs.num;
+    long_int long_rhs = rhs.num;
+    res.num = (long_int(long_lhs << 128) / long_rhs) >> 64;
+    res.num = res.get_num_sign_extended();
+    res.apply_bit_mask_frac();
+    return res;
+}
+
+template<
+    int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+    int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+LHS<LHS_INT_BITS,LHS_FRAC_BITS> &
+operator/=(LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+           const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
+{
+    // Sign extension and masking is performed in assigment operator.
+    return lhs = lhs / rhs;
+}
+
+
+/*
+ * Comparison operators for fixed point numbers.
+ */
+template<
+    int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+    int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+bool operator==(
+        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
+        const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs)
+{
+    return lhs.num == rhs.num;
+}
+
+template<
+    int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+    int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+bool operator!=(
+        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
+        const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs)
+{
+    return lhs.num != rhs.num;
+}
+
+template<
+    int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+    int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+bool operator<(
+        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
+        const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs)
+{
+    return lhs.num < rhs.num;
+}
+
+template<
+    int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+    int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+bool operator<=(
+        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
+        const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs)
+{
+    return lhs.num <= rhs.num;
+}
+
+template<
+    int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+    int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+bool operator>(
+        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
+        const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs)
+{
+    return lhs.num > rhs.num;
+}
+
+template<
+    int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
+    int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
+bool operator>=(
+        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
+        const BaseFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_INT_TYPE> &rhs)
+{
+    return lhs.num >= rhs.num;
+}
+
+
+/*
+ * Unary negation of fixed point numbers.
+ */
+template<int INT_BITS, int FRAC_BITS, template<int,int> class RHS>
+RHS<INT_BITS,FRAC_BITS> operator-(const RHS<INT_BITS,FRAC_BITS> &rhs)
+{
+    RHS<INT_BITS,FRAC_BITS> res{};
+    res.num = -rhs.num;
+    res.num = res.get_num_sign_extended();
+    res.apply_bit_mask_frac();
+    return res;
+}
+
+
+/*
+ * Rounding for fixed point numbers.
+ */
+template<
+    int LHS_INT_BITS, int LHS_FRAC_BITS,
+    int RHS_INT_BITS, int RHS_FRAC_BITS, template<int,int> class RHS>
+RHS<LHS_INT_BITS,LHS_FRAC_BITS> rnd(const RHS<RHS_INT_BITS, RHS_FRAC_BITS> &rhs)
+{
+    RHS<LHS_INT_BITS, LHS_FRAC_BITS> res{};
     res.num = rhs.num;
     res.round();
     res.apply_bit_mask_frac();
@@ -567,10 +697,21 @@ SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> sat(
     else
     {
         res.num = num;
-        res.num = res.get_num_sign_extended();
         res.apply_bit_mask_frac();
         return res;
     }
+}
+
+
+/*
+ * Print-out to C++ stream object on the form '<int> + <frac>/<2^<frac_bits>'.
+ * Good for debuging'n'stuff.
+ */
+template <int INT_BITS, int FRAC_BITS>
+std::ostream &operator<<(
+        std::ostream &os, const SignedFixedPoint<INT_BITS, FRAC_BITS> &rhs)
+{
+    return os << rhs.to_string();
 }
 
 

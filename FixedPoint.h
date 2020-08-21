@@ -12,10 +12,9 @@
  * '-D_DEBUG_SHOW_OVERFLOW_INFO' for GCC or CLANG) which will display some
  * over-/underflow info during execution.
  *
- * CAVIATS:
- *
  *
  * Author: Mikael Henriksson [www.github.com/miklhh]
+ * Repo: https://github.com/miklhh/WiseMansFixedPoint
  */
 
 #ifndef _WISE_MANS_FIXED_POINT_H
@@ -44,12 +43,15 @@ using float64_t = ttmath::Big<11,52>; // TTMath IEEE 754 double floating point.
 
 
 /*
- * Compile time template structures for retrieving the extended integer size of
- * the underlying signed and unsigned integer types.
+ * Compile time template structures for retrieving the extended or narrowed 
+ * integer size of the underlying signed and unsigned integer types.
  */
 template<typename T> struct extend_int {};
+template<typename T> struct narrow_int {};
 template<> struct extend_int<int128_t> { using type = int256_t; };
 template<> struct extend_int<uint128_t> { using type = uint256_t; };
+template<> struct narrow_int<int128_t> { using type = int64_t; };
+template<> struct narrow_int<uint128_t> { using type = uint64_t; };
 
 
 /*
@@ -83,7 +85,6 @@ template <int INT_BITS, int FRAC_BITS, typename _128_INT_TYPE>
 class BaseFixedPoint
 {
 public:
-
     /*
      * The length of the integer part of the fixed point number should be less
      * than or equal to 64 bits due to the underlying 128 bit data type. For the
@@ -96,6 +97,7 @@ public:
             "Fractional bits need to be strictly less than 64 bits.");
     static_assert(INT_BITS + FRAC_BITS > 0,
             "Need at least one bit of representation.");
+
 
     /*
      * Friend declaration of addition and subtraction arithmetic operators on fixed 
@@ -155,7 +157,45 @@ public:
     friend RHS<LHS_INT_BITS,LHS_FRAC_BITS> rnd(const RHS<RHS_INT_BITS, RHS_FRAC_BITS> &rhs);
 
 
+    /*
+     * Explilcit conversion to double data type.
+     */
+    explicit operator double() const
+    {
+        return float64_t(this->get_num_sign_extended()).ToDouble() / 
+               std::pow(2.0, 64);
+    }
+
+
+    /*
+     * Specialized to_string function for fixed point numbers.
+     */
+    std::string to_string() const noexcept
+    {
+        // Extract integer part.
+        using int_type = typename narrow_int<_128_INT_TYPE>::type;
+        int_type integer = static_cast<int_type>((this->num >> 64).ToUInt());
+        std::string integer_str( std::to_string(integer) );
+
+        // Append fractional part.
+        return integer_str + " + " + this->get_frac_quotient();
+    }
+
+
 protected:
+    /*
+     * Construct a fixed point number from a floating point number.
+     */
+    void construct_from_double(double a)
+    {
+        long n = lround(std::ceil(std::log2( std::abs(a) + 1 ) + 1));
+        this->num = std::lround(a * double(1ul << (64-n)));
+        this->num <<= n;
+        this->round();
+        this->apply_bit_mask_frac();
+        this->num = this->get_num_sign_extended();
+    }
+
 
     /*
      * Helper function for retrieving a string of the fixed point fractional 
@@ -187,17 +227,6 @@ protected:
      * Apply a bit mask to the internal representation to erase any bits outside
      * the intended number range.
      */
-    void apply_bit_mask() noexcept
-    {
-        constexpr int WIDTH = INT_BITS+FRAC_BITS;
-        this->num &= ((int128_t(1) << WIDTH)-1) << (64-FRAC_BITS);
-    }
-
-    void apply_bit_mask_int() noexcept
-    {
-        this->num &= (int128_t(1) << (64+INT_BITS)) - 1;
-    }
-
     void apply_bit_mask_frac() noexcept
     {
         this->num &= ~((int128_t(1) << (64-FRAC_BITS)) - 1);
@@ -242,43 +271,13 @@ template <int INT_BITS, int FRAC_BITS>
 class SignedFixedPoint : public BaseFixedPoint<INT_BITS,FRAC_BITS,int128_t>
 {
 public:
-
     SignedFixedPoint() = default;
 
 
     /*
      * Conversion to and from floating point numbers.
      */
-    explicit SignedFixedPoint(double a)
-    {
-        long n = lround(std::ceil(std::log2( std::abs(a) + 1 ) + 1));
-        this->num = std::lround(a * double(1ul << (64-n)));
-        this->num <<= n;
-        this->round();
-        this->apply_bit_mask_frac();
-        this->num = this->get_num_sign_extended();
-    }
-
-    explicit operator double() const
-    {
-        return float64_t(this->get_num_sign_extended()).ToDouble() / 
-               std::pow(2.0, 64);
-    }
-
-
-    /*
-     * Specialized to_string function for signed fixed point numbers.
-     */
-    std::string to_string() const noexcept
-    {
-        // Extract integer part.
-        int128_t sign_num = this->get_num_sign_extended();
-        long int integer = static_cast<long int>((sign_num >> 64).ToUInt());
-        std::string integer_str( std::to_string(integer) );
-
-        // Append fractional part.
-        return integer_str + " + " + this->get_frac_quotient();
-    }
+    explicit SignedFixedPoint(double a) { this->construct_from_double(a); }
 
 
     /*
@@ -304,7 +303,8 @@ public:
                                       RHS_FRAC_BITS, 
                                       RHS_128_INT_TYPE> &rhs) noexcept
     {
-        this->num = rhs.get_num_sign_extended();
+        this->num = rhs.num;
+        this->num = this->get_num_sign_extended();
         this->apply_bit_mask_frac();
         return *this;
     }
@@ -314,7 +314,8 @@ public:
                                           RHS_FRAC_BITS, 
                                           RHS_128_INT_TYPE> &rhs) noexcept
     {
-        this->num = rhs.get_num_sign_extended();
+        this->num = rhs.num;
+        this->num = this->get_num_sign_extended();
         this->apply_bit_mask_frac();
     }
 
@@ -323,8 +324,8 @@ public:
      * Assignment from other fixed point number with proper rounind.
      */
     template <int RHS_INT_BITS,int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
-    SignedFixedPoint<INT_BITS, FRAC_BITS> 
-        &rnd(const BaseFixedPoint<RHS_INT_BITS, 
+    SignedFixedPoint<INT_BITS, FRAC_BITS> &
+        rnd(const BaseFixedPoint<RHS_INT_BITS, 
                                   RHS_FRAC_BITS, 
                                   RHS_128_INT_TYPE> &rhs)
     {
@@ -335,6 +336,7 @@ public:
         return *this;
     }
 
+
     /*
      * Friend declaration for different template instansiations of one self.
      */
@@ -343,29 +345,11 @@ public:
 
 
     /*
-     * Friend functions for rounding and saturation.
+     * Friend declaration for saturation function.
      */
-    template<
-        int LHS_INT_BITS, int LHS_FRAC_BITS,
-        int RHS_INT_BITS, int RHS_FRAC_BITS, template<int,int> class RHS>
-    friend RHS<LHS_INT_BITS,LHS_FRAC_BITS> rnd(const RHS<RHS_INT_BITS, RHS_FRAC_BITS> &rhs);
-
-    template <int LHS_INT,int LHS_FRAC,int RHS_INT,int RHS_FRAC>
-    friend SignedFixedPoint<LHS_INT, LHS_FRAC> sat(
-                const SignedFixedPoint<RHS_INT, RHS_FRAC> &rhs);
-
-    /*
-     * Friend arithmetic.
-     */
-    template<
-        int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
-        int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
-    friend LHS<LHS_INT_BITS,LHS_FRAC_BITS>
-    operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
-              const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
-
-    template<int _INT_BITS, int _FRAC_BITS, template<int,int> class RHS>
-    friend RHS<_INT_BITS,_FRAC_BITS> operator-(const RHS<_INT_BITS,_FRAC_BITS> &rhs);
+    template <int LHS_INT_BITS,int LHS_FRAC_BITS,int RHS_INT_BITS,int RHS_FRAC_BITS>
+    friend SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> sat(
+            const SignedFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs);
 
 
     /*

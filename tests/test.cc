@@ -409,9 +409,54 @@ TEST_CASE("Rounding test.")
 
 TEST_CASE("Test of negative wordlengths.")
 {
-    FixedPoint<-4,10> fix_a{ 0.50 };
-    //std::cout << fix_a.get_state() << std::endl;
-    //std::cout << fix_a << std::endl;
+    /*
+     * These fixed point numbers should, of course, act as any other fixed point 
+     * numbers and therefore should be covered by the other tests. Here we just
+     * test the different kinds of operator to see if the compiler generates any
+     * wierd compiler warnings due to negative shifts or likewise.
+     */
+    {
+        std::stringstream result{};
+        FixedPoint<-4,10> fix_a{ 0.125 / 4.0 };
+        fix_a + fix_a;
+        fix_a - fix_a;
+        fix_a * fix_a;
+        fix_a / fix_a;
+        fix_a += fix_a;
+        fix_a -= fix_a;
+        fix_a *= fix_a;
+        fix_a /= fix_a;
+        result << fix_a;
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<10,-4> fix_a{ 32 };
+        fix_a + fix_a;
+        fix_a - fix_a;
+        fix_a * fix_a;
+        fix_a / fix_a;
+        fix_a += fix_a;
+        fix_a -= fix_a;
+        fix_a *= fix_a;
+        fix_a /= fix_a;
+        result << fix_a;
+    }
+
+
+    /*
+     * Bonus tests just for fun.
+     */
+    {
+        std::stringstream result{};
+        FixedPoint<6,-2> fix_a{ 16 };
+        FixedPoint<6,0> fix_b{ 3 };
+        FixedPoint<6,-2> fix_res{};
+        fix_res = fix_a + fix_b;
+        result << fix_res;
+        fix_res = rnd<6,-2>(fix_a + fix_b);
+        result << "|" << fix_res;
+        REQUIRE(result.str() == std::string("16|20"));
+    }
 }
 
 

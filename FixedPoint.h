@@ -177,8 +177,11 @@ public:
         int_type integer = static_cast<int_type>((this->num >> 64).ToUInt());
         std::string integer_str( std::to_string(integer) );
 
-        // Append fractional part.
-        return integer_str + " + " + this->get_frac_quotient();
+        // Append fractional part if it exists.
+        if (FRAC_BITS > 0)
+            return integer_str + " + " + this->get_frac_quotient();
+        else
+            return integer_str;
     }
 
 
@@ -203,10 +206,19 @@ protected:
      */
     std::string get_frac_quotient() const noexcept
     {
-        uint128_t num_ext = get_num_sign_extended();
-        uint64_t numerator{ uint64_t(num_ext.ToUInt()) >> (64 - FRAC_BITS) };
-        uint64_t denominator{ 1ull << FRAC_BITS };
-        return std::to_string(numerator) + "/" + std::to_string(denominator);
+        _128_INT_TYPE num_masked = num & 0xFFFFFFFFFFFFFFFF;
+        uint64_t numerator{ (num_masked >> (64-FRAC_BITS)).ToUInt() };
+        if (FRAC_BITS > 0)
+        {
+            uint64_t denominator{ 1ull << FRAC_BITS };
+            return std::to_string(numerator) + "/" + std::to_string(denominator);
+        }
+        else
+        {
+            // This branch should never be taken. Only here to supress some 
+            // compiler warnings.
+            return std::string{};
+        }
     }
 
 

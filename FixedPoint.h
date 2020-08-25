@@ -486,11 +486,28 @@ LHS<std::max(LHS_INT_BITS,RHS_INT_BITS)+1,std::max(LHS_FRAC_BITS,RHS_FRAC_BITS)>
 operator+(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
           const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
 {
-    // No sign extension or masking needed due to correct word length of result.
     constexpr int RES_INT_BITS = std::max(LHS_INT_BITS,RHS_INT_BITS)+1;
     constexpr int RES_FRAC_BITS = std::max(LHS_FRAC_BITS,RHS_FRAC_BITS);
     LHS<RES_INT_BITS,RES_FRAC_BITS> res{};
-    res.num = lhs.num + rhs.num;
+
+    if (std::max(LHS_INT_BITS,RHS_INT_BITS)+std::max(LHS_FRAC_BITS,RHS_FRAC_BITS) < 64)
+    {
+        using short_int = typename narrow_int<typename LHS<1,0>::int_type>::type;
+        uint64_t lhs_frac = lhs.num.table[0] >> (64-RES_FRAC_BITS);
+        uint64_t lhs_int = lhs.num.table[1] << (RES_FRAC_BITS);
+        uint64_t rhs_frac = rhs.num.table[0] >> (64-RES_FRAC_BITS);
+        uint64_t rhs_int = rhs.num.table[1] << (RES_FRAC_BITS);
+        short_int rhs_short = rhs_int | rhs_frac;
+        short_int lhs_short = lhs_int | lhs_frac;
+        short_int res_short = rhs_short + lhs_short;
+        res.num.table[0] = res_short << (64-RES_FRAC_BITS);
+        res.num.table[1] = res_short >> (RES_FRAC_BITS);
+    }
+    else
+    {
+        // No sign extension or masking needed due to correct word length of result.
+        res.num = lhs.num + rhs.num;
+    }
     return res;
 }
 

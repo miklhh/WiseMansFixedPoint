@@ -34,8 +34,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-
+#define TTMATH_NOASM 1
 
 #ifndef headerfilettmathuint
 #define headerfilettmathuint
@@ -3042,34 +3041,35 @@ public:
 
 		we don't clear the table
 	*/
-	UInt()
-	{
-	// when macro TTMATH_DEBUG_LOG is defined
-	// we set special values to the table
-	// in order to be everywhere the same value of the UInt object
-	// without this it would be difficult to analyse the log file
-	#ifdef TTMATH_DEBUG_LOG
-		#ifdef TTMATH_PLATFORM32
-				for(uint i=0 ; i<value_size ; ++i)
-					table[i] = 0xc1c1c1c1;
-		#else
-				for(uint i=0 ; i<value_size ; ++i)
-					table[i] = 0xc1c1c1c1c1c1c1c1;
-		#endif
-	#endif
-	}
+	UInt() = default;
+//	{
+//	// when macro TTMATH_DEBUG_LOG is defined
+//	// we set special values to the table
+//	// in order to be everywhere the same value of the UInt object
+//	// without this it would be difficult to analyse the log file
+//	#ifdef TTMATH_DEBUG_LOG
+//		#ifdef TTMATH_PLATFORM32
+//				for(uint i=0 ; i<value_size ; ++i)
+//					table[i] = 0xc1c1c1c1;
+//		#else
+//				for(uint i=0 ; i<value_size ; ++i)
+//					table[i] = 0xc1c1c1c1c1c1c1c1;
+//		#endif
+//	#endif
+//	}
 
 
 	/*!
 		a copy constructor
 	*/
-	UInt(const UInt<value_size> & u)
-	{
-		for(uint i=0 ; i<value_size ; ++i)
-			table[i] = u.table[i];
-
-		TTMATH_LOG("UInt::UInt(UInt<>)")
-	}
+    UInt(const UInt<value_size> &u) = default;
+//	UInt(const UInt<value_size> & u)
+//	{
+//		for(uint i=0 ; i<value_size ; ++i)
+//			table[i] = u.table[i];
+//
+//		TTMATH_LOG("UInt::UInt(UInt<>)")
+//	}
 
 
 
@@ -3089,9 +3089,9 @@ public:
 	/*!
 		a destructor
 	*/
-	~UInt()
-	{
-	}
+	~UInt() = default;
+//	{
+//	}
 
 
 	/*!

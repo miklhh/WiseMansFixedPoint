@@ -54,6 +54,76 @@ template<> struct narrow_int<int128_t> { using type = int64_t; };
 template<> struct narrow_int<uint128_t> { using type = uint64_t; };
 
 
+namespace detail
+{
+    /*
+     * Constexpr function for generating a ttmath 128 bit data type with the 
+     * value 1 << N, where: 0 <= N < 128. N outside of that range causes
+     * undefined behaviour.
+     */
+    template<typename TTMATH_INT>
+    constexpr TTMATH_INT ONE_SHL(int N)
+    {
+        TTMATH_INT res{};
+        if (N >= 64)
+        {
+            res.table[0] = 0ull;
+            res.table[1] = 1ull << (N-64);
+        }
+        else
+        {
+            res.table[0] = 1ull << N;
+            res.table[1] = 0ull;
+        }
+        return ttmath::UInt<2>(res);
+    }
+
+    /*
+     * Constexpr function for generating a ttmath 128 bit data type with the 
+     * value (1 << N) - 1, where: 0 <= N < 128. N outside of that range causes
+     * undefined behaviour.
+     */
+    template<typename TTMATH_INT>
+    constexpr TTMATH_INT ONE_SHL_M1(int N)
+    {
+        TTMATH_INT res{};
+        if (N >= 64)
+        {
+            res.table[0] = ~0ull;
+            res.table[1] = (1ull << (N-64)) - 1;
+        }
+        else
+        {
+            res.table[0] = (1ull << N) - 1;
+            res.table[1] = 0ull;
+        }
+        return res;
+    }
+
+    /*
+     * Constexpr function for generating a ttmath 128 bit data type with the 
+     * value ~((1 << N) - 1), where: 0 <= N < 128. N outside of that range 
+     * causes undefined behaviour.
+     */
+    template<typename TTMATH_INT>
+    constexpr TTMATH_INT ONE_SHL_M1_INV(int N)
+    {
+        TTMATH_INT res{};
+        if (N >= 64)
+        {
+            res.table[0] = 0ull;
+            res.table[1] = ~( (1ull << (N-64)) - 1 );
+        }
+        else
+        {
+            res.table[0] = ~( (1ull << N) - 1 );
+            res.table[1] = ~0ull;
+        }
+        return res;
+    }
+}
+
+
 /*
  * Simple TTMath to_string function that generates a string of the underlying 
  * 2's complement data as a hex string. Not padded in any way.
@@ -241,7 +311,7 @@ protected:
      */
     void apply_bit_mask_frac() noexcept
     {
-        this->num &= ~((int128_t(1) << (64-FRAC_BITS)) - 1);
+        this->num &= detail::ONE_SHL_M1_INV<int128_t>(64-FRAC_BITS);
     }
 
 
@@ -372,9 +442,9 @@ public:
     int128_t get_num_sign_extended() const noexcept override
     {
         if ( sign() )
-            return this->num | ~((int128_t(1) << (64+INT_BITS)) - 1);
+            return this->num | detail::ONE_SHL_M1_INV<int128_t>(64+INT_BITS);
         else
-            return this->num &  ((int128_t(1) << (64+INT_BITS)) - 1);
+            return this->num & detail::ONE_SHL_M1<int128_t>(64+INT_BITS);
     }
 
 
@@ -384,7 +454,7 @@ private:
      */
     bool sign() const noexcept
     {
-        return int128_t(0) != ( this->num & (int128_t(1) << (64+INT_BITS-1)) );
+        return int128_t(0) != ( this->num & detail::ONE_SHL<int128_t>(64+INT_BITS-1) );
     }
 };
 
@@ -472,7 +542,6 @@ LHS<LHS_INT_BITS+RHS_INT_BITS,LHS_FRAC_BITS+RHS_FRAC_BITS>
 operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
           const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
 {
-    // No sign extension or masking needed due to correct word length of result.
     LHS<LHS_INT_BITS+RHS_INT_BITS, LHS_FRAC_BITS+RHS_FRAC_BITS> res{};
     typename extend_int<typename LHS<1,0>::int_type>::type long_lhs = lhs.num;
     typename extend_int<typename LHS<1,0>::int_type>::type long_rhs = rhs.num;

@@ -645,7 +645,7 @@ TEST_CASE("Addition performance.")
      */
     std::cout << "    Fix point addition slower with a factor: ";
     std::cout << double(time_fix.count()) / double(time_float.count());
-    std::cout << std::endl << std::endl;;
+    std::cout << std::endl << std::endl;
 }
 
 

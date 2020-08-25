@@ -451,7 +451,6 @@ public:
             return this->num & detail::ONE_SHL_M1<int128_t>(64+INT_BITS);
     }
 
-
 private:
     /*
      * Get the sign of the number.

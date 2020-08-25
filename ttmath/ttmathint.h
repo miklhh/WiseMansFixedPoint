@@ -1116,17 +1116,17 @@ public:
 
 		we don't clear table etc.
 	*/
-	Int()
-	{
-	}
+	Int() = default;
+//	{
+//	}
 
 
 	/*!
 		the destructor
 	*/
-	~Int()
-	{
-	}
+//	~Int() = default;
+//	{
+//	}
 
 
 	/*!

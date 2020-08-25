@@ -386,8 +386,10 @@ public:
                                       RHS_128_INT_TYPE> &rhs) noexcept
     {
         this->num = rhs.num;
-        this->num = this->get_num_sign_extended();
-        this->apply_bit_mask_frac();
+        if (INT_BITS < RHS_INT_BITS)
+            this->num = this->get_num_sign_extended();
+        if (FRAC_BITS < RHS_FRAC_BITS)
+            this->apply_bit_mask_frac();
         return *this;
     }
 
@@ -397,8 +399,10 @@ public:
                                           RHS_128_INT_TYPE> &rhs) noexcept
     {
         this->num = rhs.num;
-        this->num = this->get_num_sign_extended();
-        this->apply_bit_mask_frac();
+        if (INT_BITS < RHS_INT_BITS)
+            this->num = this->get_num_sign_extended();
+        if (FRAC_BITS < RHS_FRAC_BITS)
+            this->apply_bit_mask_frac();
     }
 
 

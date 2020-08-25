@@ -193,6 +193,18 @@ TEST_CASE("Instance going out of scope should reset value.")
 }
 
 
+TEST_CASE("Assignment of FixedPoint that truncates.")
+{
+    {
+        FixedPoint<5,10> fix_a{ 15.0 };
+        FixedPoint<3,10> fix_b{};
+        fix_b = fix_a;
+        std::cout << fix_b << std::endl;
+    }
+
+}
+
+
 TEST_CASE("Assigment of FixedPoint values (just need to compile).")
 {
     FixedPoint<10,10> fix_a{}, fix_b{};

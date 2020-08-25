@@ -542,11 +542,29 @@ LHS<LHS_INT_BITS+RHS_INT_BITS,LHS_FRAC_BITS+RHS_FRAC_BITS>
 operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
           const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
 {
-    LHS<LHS_INT_BITS+RHS_INT_BITS, LHS_FRAC_BITS+RHS_FRAC_BITS> res{};
-    typename extend_int<typename LHS<1,0>::int_type>::type long_lhs = lhs.num;
-    typename extend_int<typename LHS<1,0>::int_type>::type long_rhs = rhs.num;
-    res.num = (long_lhs * long_rhs) >> 64;
-    return res;
+    if (LHS_INT_BITS+LHS_FRAC_BITS+RHS_INT_BITS+RHS_FRAC_BITS <= 64)
+    {
+        using short_int = typename narrow_int<typename LHS<1,0>::int_type>::type;
+        LHS<LHS_INT_BITS+RHS_INT_BITS, LHS_FRAC_BITS+RHS_FRAC_BITS> res{};
+        uint64_t lhs_frac = lhs.num.table[0] >> (64-LHS_FRAC_BITS);
+        uint64_t lhs_int = lhs.num.table[1] << (LHS_FRAC_BITS);
+        uint64_t rhs_frac = rhs.num.table[0] >> (64-RHS_FRAC_BITS);
+        uint64_t rhs_int = rhs.num.table[1] << (RHS_FRAC_BITS);
+        short_int rhs_short = rhs_int | rhs_frac;
+        short_int lhs_short = lhs_int | lhs_frac;
+        short_int res_short = lhs_short * rhs_short;
+        res.num.table[0] = res_short << (64-LHS_FRAC_BITS-RHS_FRAC_BITS);
+        res.num.table[1] = res_short >> (LHS_FRAC_BITS+RHS_FRAC_BITS);
+        return res;
+    }
+    else
+    {
+        LHS<LHS_INT_BITS+RHS_INT_BITS, LHS_FRAC_BITS+RHS_FRAC_BITS> res{};
+        typename extend_int<typename LHS<1,0>::int_type>::type long_lhs = lhs.num;
+        typename extend_int<typename LHS<1,0>::int_type>::type long_rhs = rhs.num;
+        res.num = (long_lhs * long_rhs) >> 64;
+        return res;
+    }
 }
 
 template<

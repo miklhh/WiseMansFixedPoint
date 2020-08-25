@@ -1124,7 +1124,7 @@ public:
 	/*!
 		the destructor
 	*/
-//	~Int() = default;
+	~Int() = default;
 //	{
 //	}
 

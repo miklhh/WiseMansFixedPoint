@@ -3089,7 +3089,7 @@ public:
 	/*!
 		a destructor
 	*/
-//	~UInt() = default;
+	~UInt() = default;
 //	{
 //	}
 

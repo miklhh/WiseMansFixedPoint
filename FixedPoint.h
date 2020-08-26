@@ -494,29 +494,34 @@ operator+(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
      * smaller than or equal to 64 bits. This specialized version is faster to
      * execute since it does not need to perform the wise addition.
      */
-    if ( std::max(LHS_INT_BITS,RHS_INT_BITS) +
-         std::max(LHS_FRAC_BITS,RHS_FRAC_BITS) < 64 )
-    {
-        using short_int = typename narrow_int<typename LHS<1,0>::int_type>::type;
-        uint64_t lhs_frac = lhs.num.table[0] >> (64-RES_FRAC_BITS);
-        uint64_t lhs_int = lhs.num.table[1] << (RES_FRAC_BITS);
-        uint64_t rhs_frac = rhs.num.table[0] >> (64-RES_FRAC_BITS);
-        uint64_t rhs_int = rhs.num.table[1] << (RES_FRAC_BITS);
-        short_int rhs_short = rhs_int | rhs_frac;
-        short_int lhs_short = lhs_int | lhs_frac;
-        short_int res_short = lhs_short + rhs_short;
-        res.num.table[0] = res_short << (64-RES_FRAC_BITS);
-        res.num.table[1] = res_short >> (RES_FRAC_BITS);
-    }
-    /*
-     * General addition operator for wide fixed point numbers. This branch is
-     * used whenever the result is greater than 64 bits.
-     */
-    else
-    {
+//    if ( std::max(LHS_INT_BITS,RHS_INT_BITS) +
+//         std::max(LHS_FRAC_BITS,RHS_FRAC_BITS) < 64 )
+//    {
+//        using short_int = typename narrow_int<typename LHS<1,0>::int_type>::type;
+//        uint64_t lhs_frac = lhs.num.table[0] >> (64-RES_FRAC_BITS);
+//        uint64_t lhs_int = lhs.num.table[1] << (RES_FRAC_BITS);
+//        uint64_t rhs_frac = rhs.num.table[0] >> (64-RES_FRAC_BITS);
+//        uint64_t rhs_int = rhs.num.table[1] << (RES_FRAC_BITS);
+//        short_int rhs_short = rhs_int | rhs_frac;
+//        short_int lhs_short = lhs_int | lhs_frac;
+//        short_int res_short = lhs_short + rhs_short;
+//        res.num.table[0] = res_short << (64-RES_FRAC_BITS);
+//        res.num.table[1] = res_short >> (RES_FRAC_BITS);
+//    }
+//    /*
+//     * General addition operator for wide fixed point numbers. This branch is
+//     * used whenever the result is greater than 64 bits.
+//     */
+//    else
+//    {
         // No sign extension or masking needed due to correct word length.
-        res.num = lhs.num + rhs.num;
-    }
+        //res.num = lhs.num + rhs.num;
+        res.num.table[0] = lhs.num.table[0] + rhs.num.table[0];
+        if( res.num.table[0] < lhs.num.table[0] ) 
+            res.num.table[1]  = lhs.num.table[1] + rhs.num.table[1] + 1;
+        else
+            res.num.table[1]  = lhs.num.table[1] + rhs.num.table[1];
+//    }
     return res;
 }
 
@@ -551,29 +556,36 @@ operator-(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
      * smaller than or equal to 64 bits. This specialized version is faster to
      * execute since it does not need to perform the wise addition.
      */
-    if ( std::max(LHS_INT_BITS,RHS_INT_BITS) +
-         std::max(LHS_FRAC_BITS,RHS_FRAC_BITS) < 64 )
-    {
-        using short_int = typename narrow_int<typename LHS<1,0>::int_type>::type;
-        uint64_t lhs_frac = lhs.num.table[0] >> (64-RES_FRAC_BITS);
-        uint64_t lhs_int = lhs.num.table[1] << (RES_FRAC_BITS);
-        uint64_t rhs_frac = rhs.num.table[0] >> (64-RES_FRAC_BITS);
-        uint64_t rhs_int = rhs.num.table[1] << (RES_FRAC_BITS);
-        short_int rhs_short = rhs_int | rhs_frac;
-        short_int lhs_short = lhs_int | lhs_frac;
-        short_int res_short = lhs_short - rhs_short;
-        res.num.table[0] = res_short << (64-RES_FRAC_BITS);
-        res.num.table[1] = res_short >> (RES_FRAC_BITS);
-    }
-    /*
-     * General suptraction operator for wide fixed point numbers. This branch is
-     * used whenever the result is greater than 64 bits.
-     */
-    else
-    {
+//    if ( std::max(LHS_INT_BITS,RHS_INT_BITS) +
+//         std::max(LHS_FRAC_BITS,RHS_FRAC_BITS) < 64 )
+//    {
+//        using short_int = typename narrow_int<typename LHS<1,0>::int_type>::type;
+//        uint64_t lhs_frac = lhs.num.table[0] >> (64-RES_FRAC_BITS);
+//        uint64_t lhs_int = lhs.num.table[1] << (RES_FRAC_BITS);
+//        uint64_t rhs_frac = rhs.num.table[0] >> (64-RES_FRAC_BITS);
+//        uint64_t rhs_int = rhs.num.table[1] << (RES_FRAC_BITS);
+//        short_int rhs_short = rhs_int | rhs_frac;
+//        short_int lhs_short = lhs_int | lhs_frac;
+//        short_int res_short = lhs_short - rhs_short;
+//        res.num.table[0] = res_short << (64-RES_FRAC_BITS);
+//        res.num.table[1] = res_short >> (RES_FRAC_BITS);
+//    }
+//    /*
+//     * General suptraction operator for wide fixed point numbers. This branch is
+//     * used whenever the result is greater than 64 bits.
+//     */
+//    else
+//    {
         // No sign extension or masking needed due to correct word length.
-        res.num = lhs.num - rhs.num;
-    }
+        //res.num = lhs.num - rhs.num;
+
+            res.num.table[0] = lhs.num.table[0] - rhs.num.table[0];
+
+            if( lhs.num.table[0] < rhs.num.table[0] ) 
+                res.num.table[1] = lhs.num.table[1] - rhs.num.table[1] - 1;
+            else
+                res.num.table[1] = lhs.num.table[1] - rhs.num.table[1];
+//    }
     return res;
 }
 

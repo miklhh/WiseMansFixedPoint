@@ -50,3 +50,6 @@ a = a + b;
 
 # To write about.
  * Correct rounding when using floating point constructor.
+ * Round to nearest (`rnd<7,5>(fix)`).
+ * Saturation (`sat<12,13>(fix)`).
+ * Compile flag `-D_SHOW_OVERFLOW_INFO`.

@@ -31,6 +31,22 @@
 
 
 /*
+ * Enabling compiler flag _DEBUG_SHOW_OVERFLOW_INFO will help the user find fixed
+ * point assignments that over-/underflows. Overflow info will be printed
+ * through the debug routine defined below. A word of warning, running with this
+ * flag enabled will significantly slow down code execution.
+ */
+#ifdef _DEBUG_SHOW_OVERFLOW_INFO
+    #include <sstream>      // Do NOT remove stringstream include.
+    #include <iostream>     // Remove iostream if you wish to print elsewhere.
+    void _DEBUG_PRINT_FUNC(const char *str)
+    {
+        std::cerr << str << std::endl;
+    }
+#endif
+
+
+/*
  * Wide integer types. The 128 bit integers are used as underlying data type
  * for the fixed point numbers and the 256 bit integers are used for multiplying
  * and dividing the fixed point numbers.
@@ -326,6 +342,16 @@ protected:
 
 
     /*
+     * Test if over-/underflow has occured before possible sign extension.
+     */
+    bool test_overflow() const noexcept
+    {
+        const uint128_t MASK = detail::ONE_SHL_M1_INV<uint128_t>(64+INT_BITS);
+        return !( (num&MASK) == 0 || (num&MASK) == MASK );
+    }
+
+
+    /*
      * Underlying data type. It will either be a signed or unsigned 128-bit
      * integer.
      */
@@ -386,10 +412,53 @@ public:
                                       RHS_128_INT_TYPE> &rhs) noexcept
     {
         this->num = rhs.num;
+
         if (INT_BITS < RHS_INT_BITS)
+        {
+            /*
+             * Extra debuging checks.
+             */
+            #ifdef _DEBUG_SHOW_OVERFLOW_INFO
+            std::stringstream ss{};
+            bool overflow = this->test_overflow();
+            if (overflow)
+            {
+                if ((detail::ONE_SHL<int128_t>(127) & this->num) == int128_t(0))
+                {
+                    ss << "Overflow in node ";
+                }
+                else
+                {
+                    ss << "Underflow in node ";
+                }
+                ss << "<" << INT_BITS << "," << FRAC_BITS << "> ";
+                ss << "of value: " << this->to_string() << " ";
+            }
+            #endif
+
+            /*
+             * Sign extend (possibly truncate) MSB side.
+             */
             this->num = this->get_num_sign_extended();
+
+            /*
+             * Print remaining overflow info.
+             */
+            #ifdef _DEBUG_SHOW_OVERFLOW_INFO
+            if (overflow)
+            {
+                ss << "truncated to: " << this->to_string();
+                _DEBUG_PRINT_FUNC(ss.str().c_str());
+            }
+            #endif
+        }
+
+        /*
+         * Truncate fractional bits if necessary.
+         */
         if (FRAC_BITS < RHS_FRAC_BITS)
             this->apply_bit_mask_frac();
+
         return *this;
     }
 
@@ -398,11 +467,7 @@ public:
                                           RHS_FRAC_BITS, 
                                           RHS_128_INT_TYPE> &rhs) noexcept
     {
-        this->num = rhs.num;
-        if (INT_BITS < RHS_INT_BITS)
-            this->num = this->get_num_sign_extended();
-        if (FRAC_BITS < RHS_FRAC_BITS)
-            this->apply_bit_mask_frac();
+        *this = rhs;
     }
 
 

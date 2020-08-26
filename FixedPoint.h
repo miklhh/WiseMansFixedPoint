@@ -346,7 +346,9 @@ protected:
      */
     bool test_overflow() const noexcept
     {
-        const uint128_t MASK = detail::ONE_SHL_M1_INV<uint128_t>(64+INT_BITS);
+        constexpr uint128_t MASK = detail::ONE_SHL_M1_INV<uint128_t>(
+                64+INT_BITS-1
+        );
         return !( (num&MASK) == 0 || (num&MASK) == MASK );
     }
 
@@ -849,11 +851,10 @@ SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> sat(
         const SignedFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs)
 {
     SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> res{};
-    int128_t num = rhs.get_num_sign_extended();
-    int128_t overflow_mask = ~((int128_t(1) << (64+LHS_INT_BITS-1))-1);
-    if ( (num ^ overflow_mask) != 0 )
+    res.num = rhs.get_num_sign_extended();
+    if (res.test_overflow())
     {
-        if ( num < 0 )
+        if ( res.num < 0 )
         {
             // Min value.
             res.num = ~((int128_t(1) << (64+LHS_INT_BITS-1)) - 1);
@@ -868,7 +869,6 @@ SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> sat(
     }
     else
     {
-        res.num = num;
         res.apply_bit_mask_frac();
         return res;
     }

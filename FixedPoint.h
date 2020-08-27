@@ -421,37 +421,28 @@ public:
              * Extra debuging checks.
              */
             #ifdef _DEBUG_SHOW_OVERFLOW_INFO
-            std::stringstream ss{};
-            bool overflow = this->test_overflow();
-            if (overflow)
+            if (this->test_overflow())
             {
-                if ((detail::ONE_SHL<int128_t>(127) & this->num) == int128_t(0))
-                {
-                    ss << "Overflow in node ";
-                }
-                else
-                {
-                    ss << "Underflow in node ";
-                }
+                std::stringstream ss{};
+                ss << "Overflow in node ";
                 ss << "<" << INT_BITS << "," << FRAC_BITS << "> ";
                 ss << "of value: " << this->to_string() << " ";
+                this->num = this->get_num_sign_extended();
+                ss << "truncated to: " << this->to_string();
+                _DEBUG_PRINT_FUNC(ss.str().c_str());
             }
-            #endif
-
+            else
+            {
+                /*
+                 * Sign extend (possibly truncate) MSB side.
+                 */
+                this->num = this->get_num_sign_extended();
+            }
+            #else
             /*
              * Sign extend (possibly truncate) MSB side.
              */
             this->num = this->get_num_sign_extended();
-
-            /*
-             * Print remaining overflow info.
-             */
-            #ifdef _DEBUG_SHOW_OVERFLOW_INFO
-            if (overflow)
-            {
-                ss << "truncated to: " << this->to_string();
-                _DEBUG_PRINT_FUNC(ss.str().c_str());
-            }
             #endif
         }
 

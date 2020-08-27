@@ -37,12 +37,28 @@
  * flag enabled will significantly slow down code execution.
  */
 #ifdef _DEBUG_SHOW_OVERFLOW_INFO
-    #include <sstream>      // Do NOT remove stringstream include.
-    #include <iostream>     // Remove iostream if you wish to print elsewhere.
-    void _DEBUG_PRINT_FUNC(const char *str)
-    {
-        std::cerr << str << std::endl;
-    }
+    #include <sstream>
+
+    #ifdef MX_API_VER
+        /*
+         * Running in MATLAB/Mex environment. Use mexPrint for printing 
+         * overflows.
+         */
+        #include "mex.h"
+        void _DEBUG_PRINT_FUNC(const char *str)
+        {
+            mexPrintf("%s\n", str);
+        }
+    #else
+        /*
+         * Running in basic environment. Use stderr for printing overflows.
+         */
+        void _DEBUG_PRINT_FUNC(const char *str)
+        {
+            std::cerr << str << std::endl;
+        }
+    #endif // MX_API_VER
+
 #endif
 
 

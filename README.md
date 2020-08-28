@@ -53,3 +53,5 @@ a = a + b;
  * Round to nearest (`rnd<7,5>(fix)`).
  * Saturation (`sat<12,13>(fix)`).
  * Compile flag `-D_SHOW_OVERFLOW_INFO`.
+ * Overflow detection uses `64-INT_BITS` guard bits. This should detect overflow in all cases since a limit on how big fixed point numbers can be is imposed.
+ * Conversion to double-precision floating-point uses at most 64 bits of the fixed point number in conversion (all integer bits).

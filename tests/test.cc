@@ -178,6 +178,14 @@ TEST_CASE("Overflow tests")
         result << res_a << "|" << res_b;
         REQUIRE( result.str() == std::string("-512 + 0/1024|511 + 0/1024") );
     }
+    {
+        std::stringstream result{};
+        FixedPoint<10,10> fix_a{ 511.0 }, fix_b{ 0.5 }, fix_c{ 1.25 };
+        FixedPoint<10,10> res_a{ fix_a + fix_b };
+        FixedPoint<10,10> res_b{ fix_a + fix_c };
+        result << res_a << "|" << res_b;
+        REQUIRE( result.str() == std::string("511 + 512/1024|-512 + 256/1024") );
+    }
 }
 
 
@@ -637,13 +645,13 @@ TEST_CASE("Addition performance.")
      */
     std::chrono::microseconds time_fix{};
     {
-        FixedPoint<63,63> fix_res{ 0.0 };
+        FixedPoint<38,63> fix_res{ 0.0 };
 
         auto t1 = high_resolution_clock::now();
         for (int i=0; i<ITERATIONS; ++i)
         {
-            fix_res += FixedPoint<63,63>{ 12.345678 };
-            fix_res -= FixedPoint<63,63>{ 12.345677 };
+            fix_res += FixedPoint<38,63>{ 12.345678 };
+            fix_res -= FixedPoint<38,63>{ 12.345677 };
         }
         auto t2 = high_resolution_clock::now();
 

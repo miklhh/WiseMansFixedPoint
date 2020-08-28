@@ -20,13 +20,15 @@
 #ifndef _WISE_MANS_FIXED_POINT_H
 #define _WISE_MANS_FIXED_POINT_H
 
-#include "ttmath/ttmath.h"
+//#include "ttmath/ttmath.h"
+#include "ttmath/ttmathuint.h"
+#include "ttmath/ttmathint.h"
+#include "ttmath/ttmathbig.h"
 
 #include <string>
 #include <sstream>
 #include <cmath>
 #include <algorithm>
-#include <type_traits>
 #include <cstdint>
 
 
@@ -34,7 +36,7 @@
  * Enabling compiler flag _DEBUG_SHOW_OVERFLOW_INFO will help the user find fixed
  * point assignments that over-/underflows. Overflow info will be printed
  * through the debug routine defined below. A word of warning, running with this
- * flag enabled will significantly slow down code execution.
+ * flag enabled will slow down code execution.
  */
 #ifdef _DEBUG_SHOW_OVERFLOW_INFO
     #include <sstream>
@@ -260,16 +262,6 @@ public:
 
 
     /*
-     * Explilcit conversion to double data type.
-     */
-    explicit operator double() const
-    {
-        return float64_t(this->get_num_sign_extended()).ToDouble() / 
-               std::pow(2.0, 64);
-    }
-
-
-    /*
      * Specialized to_string function for fixed point numbers.
      */
     std::string to_string() const noexcept
@@ -358,18 +350,6 @@ protected:
 
 
     /*
-     * Test if over-/underflow has occured before possible sign extension.
-     */
-    bool test_overflow() const noexcept
-    {
-        constexpr uint128_t MASK = detail::ONE_SHL_M1_INV<uint128_t>(
-                64+INT_BITS-1
-        );
-        return !( (num&MASK) == 0 || (num&MASK) == MASK );
-    }
-
-
-    /*
      * Underlying data type. It will either be a signed or unsigned 128-bit
      * integer.
      */
@@ -407,6 +387,25 @@ public:
 
 
     /*
+     * Explilcit conversion to double data type.
+     */
+    explicit operator double() const
+    {
+        /*
+         * Truncate num to 64 bits, with as many fractional bits remaining as 
+         * possible without truncating any integer bits.
+         */
+        using std::min; using std::max;
+        constexpr int SHIFT_WIDTH = max( min(64, 64-FRAC_BITS), INT_BITS );
+        int64_t num_small = (this->num >> SHIFT_WIDTH).ToUInt();
+        return double(num_small) / double(1ull << (64-SHIFT_WIDTH));
+        
+//        return float64_t(this->get_num_sign_extended()).ToDouble() / 
+//               std::pow(2.0, 64);
+    }
+
+
+    /*
      * Display the state of the fixed point number through the retuned string.
      * The string contains formated output for debuging purposes.
      */
@@ -433,32 +432,33 @@ public:
 
         if (INT_BITS < RHS_INT_BITS)
         {
-            /*
-             * Extra debuging checks.
-             */
             #ifdef _DEBUG_SHOW_OVERFLOW_INFO
-            if (this->test_overflow())
-            {
-                std::stringstream ss{};
-                ss << "Overflow in node ";
-                ss << "<" << INT_BITS << "," << FRAC_BITS << "> ";
-                ss << "of value: " << this->to_string() << " ";
-                this->num = this->get_num_sign_extended();
-                ss << "truncated to: " << this->to_string();
-                _DEBUG_PRINT_FUNC(ss.str().c_str());
-            }
-            else
-            {
+                /*
+                 * Extra debuging checks.
+                 */
+                if (this->test_overflow())
+                {
+                    std::stringstream ss{};
+                    ss << "Overflow in assignment ";
+                    ss << "<" << RHS_INT_BITS << "," << RHS_FRAC_BITS << "> ";
+                    ss << "--> " << "<" << INT_BITS << "," << FRAC_BITS << "> ";
+                    ss << "of value: " << this->to_string() << " ";
+                    this->num = this->get_num_sign_extended();
+                    ss << "truncated to: " << this->to_string();
+                    _DEBUG_PRINT_FUNC(ss.str().c_str());
+                }
+                else
+                {
+                    /*
+                     * Sign extend (possibly truncate) MSB side.
+                     */
+                    this->num = this->get_num_sign_extended();
+                }
+            #else
                 /*
                  * Sign extend (possibly truncate) MSB side.
                  */
                 this->num = this->get_num_sign_extended();
-            }
-            #else
-            /*
-             * Sign extend (possibly truncate) MSB side.
-             */
-            this->num = this->get_num_sign_extended();
             #endif
         }
 
@@ -466,7 +466,9 @@ public:
          * Truncate fractional bits if necessary.
          */
         if (FRAC_BITS < RHS_FRAC_BITS)
+        {
             this->apply_bit_mask_frac();
+        }
 
         return *this;
     }
@@ -524,6 +526,19 @@ public:
         else
             return this->num & detail::ONE_SHL_M1<int128_t>(64+INT_BITS);
     }
+
+
+    /*
+     * Test if over-/underflow has occured before possible sign extension.
+     */
+    bool test_overflow() const noexcept
+    {
+        constexpr uint128_t MASK = detail::ONE_SHL_M1_INV<uint128_t>(
+                64+INT_BITS-1
+        );
+        return !( (this->num & MASK) == 0 || (this->num & MASK) == MASK );
+    }
+
 
 private:
     /*

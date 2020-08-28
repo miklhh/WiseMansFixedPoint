@@ -302,8 +302,9 @@ protected:
          */
         constexpr double MAGIC = 0.9999999999999999;
         long n = detail::ilog2_fast(std::abs(a) + MAGIC) + 2;
-        this->num = std::lround(a * double(1ul << (64-n)));
-        this->num <<= n;
+        int64_t num = std::lround(a * double(1ul << (64-n)));
+        this->num.table[0] = num << n;
+        this->num.table[1] = num >> (64-n);
         this->round();
         this->apply_bit_mask_frac();
         this->num = this->get_num_sign_extended();
@@ -415,9 +416,6 @@ public:
         constexpr int SHIFT_WIDTH = max( min(64, 64-FRAC_BITS), INT_BITS );
         int64_t num_small = (this->num >> SHIFT_WIDTH).ToUInt();
         return double(num_small) / double(1ull << (64-SHIFT_WIDTH));
-        
-//        return float64_t(this->get_num_sign_extended()).ToDouble() / 
-//               std::pow(2.0, 64);
     }
 
 

@@ -55,3 +55,6 @@ a = a + b;
  * Compile flag `-D_SHOW_OVERFLOW_INFO`.
  * Overflow detection uses `64-INT_BITS` guard bits. This should detect overflow in all cases since a limit on how big fixed point numbers can be is imposed.
  * Conversion to double-precision floating-point uses at most 64 bits of the fixed point number in conversion (all integer bits).
+
+# Todo:
+ * The specialized `_INT128_t construct_from_double(double)` function is now speciallized for signed integers only, and should be moved and specialized in the signed and unsigned types.

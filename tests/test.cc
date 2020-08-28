@@ -56,14 +56,30 @@ TEST_CASE("Floating-point constructor")
      */
     {
         std::stringstream result_a{}, result_b{}, result_c{};
+        std::stringstream result_d{}, result_e{}, result_f{};
+        std::stringstream result_g{}, result_h{}, result_i{};
         FixedPoint<10,63> fix_a{ 3.25261e-19 }; // approx.   3 * 2^(-63).
         FixedPoint<10,63> fix_b{ 2.17925e-17 }; // approx. 201 * 2^(-63).
         FixedPoint<10,56> fix_c{ 1.28231e-14 }; // approx. 924 * 2^(-56).
+        FixedPoint<10,63> fix_d{ 6.50521e-19 }; // approx.   6 * 2^(-63).
+        FixedPoint<10,63> fix_e{ 8.67362e-19 }; // approx.   8 * 2^(-63).
+        FixedPoint<10,63> fix_f{ 7.58942e-19 }; // approx.   7 * 2^(-63).
+        FixedPoint<10,62> fix_g{ 2.16840e-19 }; // approx.   1 * 2^(-62).
+        FixedPoint<10,62> fix_h{ 4.33681e-19 }; // approx.   2 * 2^(-62).
+        FixedPoint<10,62> fix_i{ 6.50521e-19 }; // approx.   3 * 2^(-62).
 
         result_a << fix_a; result_b << fix_b; result_c << fix_c;
+        result_d << fix_d; result_e << fix_e; result_f << fix_f;
+        result_g << fix_g; result_h << fix_h; result_i << fix_i;
         REQUIRE(result_a.str() == std::string("0 + 3/9223372036854775808"));
         REQUIRE(result_b.str() == std::string("0 + 201/9223372036854775808"));
         REQUIRE(result_c.str() == std::string("0 + 924/72057594037927936"));
+        REQUIRE(result_d.str() == std::string("0 + 6/9223372036854775808"));
+        REQUIRE(result_e.str() == std::string("0 + 8/9223372036854775808"));
+        REQUIRE(result_f.str() == std::string("0 + 7/9223372036854775808"));
+        REQUIRE(result_g.str() == std::string("0 + 1/4611686018427387904"));
+        REQUIRE(result_h.str() == std::string("0 + 2/4611686018427387904"));
+        REQUIRE(result_i.str() == std::string("0 + 3/4611686018427387904"));
     }
 
     /*

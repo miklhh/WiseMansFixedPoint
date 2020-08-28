@@ -91,6 +91,16 @@ template<> struct narrow_int<uint128_t> { using type = uint64_t; };
 namespace detail
 {
     /*
+     * Fast integer log2(double) function.
+     */
+    static inline int ilog2_fast(double d)
+    {
+        int result;
+        std::frexp(d, &result);
+        return result-1;
+    }
+
+    /*
      * Constexpr function for generating a ttmath 128 bit data type with the 
      * value 1 << N, where: 0 <= N < 128. N outside of that range causes
      * undefined behaviour.
@@ -285,7 +295,13 @@ protected:
      */
     void construct_from_double(double a)
     {
-        long n = lround(std::ceil(std::log2( std::abs(a) + 1 ) + 1));
+        /*
+         * NOTE: This magic number is (exactly) the greatest IEEE 754 
+         * Double-Precision Floating-Point number smaller than 1.0. It is used 
+         * to create a ceil funcion out of the ilog2_fast(x+MAGIC) + 1.
+         */
+        constexpr double MAGIC = 0.9999999999999999;
+        long n = detail::ilog2_fast(std::abs(a) + MAGIC) + 2;
         this->num = std::lround(a * double(1ul << (64-n)));
         this->num <<= n;
         this->round();

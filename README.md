@@ -58,3 +58,4 @@ a = a + b;
 
 # Todo:
  * The specialized `_INT128_t construct_from_double(double)` function is now speciallized for signed integers only, and should be moved and specialized in the signed and unsigned types.
+ * Should add some tests to see if the new `int detail::ilog2_fast(double)` function, the floating-point constructor and `explicit operator double()` have many flaws.

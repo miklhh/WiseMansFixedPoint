@@ -95,10 +95,9 @@ namespace detail
      */
     static inline int ilog2_fast(double d)
     {
-        //int result;
-        //std::frexp(d, &result);
-        //return result-1;
-        return ((reinterpret_cast<unsigned long long&>(d) >> 52) & 0x7ff) - 1023;
+        int result;
+        std::frexp(d, &result);
+        return result-1;
     }
 
     /*

@@ -57,5 +57,7 @@ a = a + b;
  * Conversion to double-precision floating-point uses at most 64 bits of the fixed point number in conversion (all integer bits).
 
 # Todo:
- * The specialized `_INT128_t construct_from_double(double)` function is now speciallized for signed integers only, and should be moved and specialized in the signed and unsigned types.
+ * ~~The specialized `_INT128_t construct_from_double(double)` function is now speciallized for signed integers only, and should be moved and specialized in the signed and unsigned types.~~
  * Should add some tests to see if the new `int detail::ilog2_fast(double)` function, the floating-point constructor and `explicit operator double()` have many flaws.
+ * Fix all warnings when int/frac sizes <= 0.
+ * What do we want to do with arithmetic between signed and unsigned types?

@@ -89,14 +89,14 @@ TEST_CASE("Floating-point constructor")
      */
     {
         std::stringstream result_a{}, result_b{}, result_c{};
-        FixedPoint<64, 4> fix_a{ 9223372036854775807.0 };
-        FixedPoint<59,10> fix_b{ 288230376151711743.97 };
+        FixedPoint<64, 4> fix_a{  4611686018427387904.0 }; //  2^(62).
+        FixedPoint<59,10> fix_b{ -288230376151711744.0 };  // -2^(58).
         FixedPoint<42,11> fix_c{ -2199023255552.0 };
 
         result_a << fix_a; result_b << fix_b; result_c << fix_c;
-        //REQUIRE(result_a.str() == std::string("9223372036854775807 + 0/16"));
-        //REQUIRE(result_b.str() == std::string("288230376151711743 + 992/1024"));
-        //REQUIRE(result_c.str() == std::string("-2199023255552 + 0/2048"));
+        REQUIRE(result_a.str() == std::string("4611686018427387904 + 0/16"));
+        REQUIRE(result_b.str() == std::string("-288230376151711744 + 0/1024"));
+        REQUIRE(result_c.str() == std::string("-2199023255552 + 0/2048"));
     }
 
 }

@@ -1,16 +1,15 @@
 /*
  * WiseMansFixedPoint header only C++ fixed point module. This fixed point
- * implementation supports numbers of varying integer and fractional lengths
- * and it employs the most basic arithmetic functions +,-,*,/ with proper
- * rounding when desiered. It is created with a hardware implementation point of
- * view and strives to behave as close to the VHDL IEEE signed and unsigned data
- * types.
+ * implementation supports numbers of varying integer and fractional word
+ * lengths, and it employs the most basic arithmetic functions +,-,*,/ with
+ * proper rounding when desiered. It is created with a hardware implementation
+ * of fixed point numbers as leader, and it strives to behave as close to the
+ * VHDL IEEE signed and unsigned data types as possible.
  *
- * For the penalty of some greater run-time, the user can enable over-/underflow
- * checks by compiling the header with preprocessor macro
- * '_DEBUG_SHOW_OVERFLOW_INFO' defined (commandline option
- * '-D_DEBUG_SHOW_OVERFLOW_INFO' for GCC or CLANG) which will display some
- * over-/underflow info during execution.
+ * For the penalty of some greater run-time, the user can enable overflow checks
+ * by compiling the header with preprocessor macro '_DEBUG_SHOW_OVERFLOW_INFO'
+ * defined (commandline option '-D_DEBUG_SHOW_OVERFLOW_INFO' for GCC or CLANG)
+ * which will display some over-/underflow information during code execution.
  *
  *
  * Author: Mikael Henriksson [www.github.com/miklhh]
@@ -20,10 +19,7 @@
 #ifndef _WISE_MANS_FIXED_POINT_H
 #define _WISE_MANS_FIXED_POINT_H
 
-//#include "ttmath/ttmath.h"
-#include "ttmath/ttmathuint.h"
-#include "ttmath/ttmathint.h"
-#include "ttmath/ttmathbig.h"
+#include "ttmath/ttmath.h"
 
 #include <string>
 #include <sstream>
@@ -33,10 +29,9 @@
 
 
 /*
- * Enabling compiler flag _DEBUG_SHOW_OVERFLOW_INFO will help the user find fixed
- * point assignments that over-/underflows. Overflow info will be printed
- * through the debug routine defined below. A word of warning, running with this
- * flag enabled will slow down code execution.
+ * Enabling compiler flag _DEBUG_SHOW_OVERFLOW_INFO will help the user find 
+ * fixed point assignments that overflows. Overflow info will be printed through
+ * the debug routine defined below.
  */
 #ifdef _DEBUG_SHOW_OVERFLOW_INFO
     #include <sstream>
@@ -61,13 +56,13 @@
         }
     #endif // MX_API_VER
 
-#endif
+#endif // _DEBUG_SHOW_OVERFLOW_INFO
 
 
 /*
- * Wide integer types. The 128 bit integers are used as underlying data type
- * for the fixed point numbers and the 256 bit integers are used for multiplying
- * and dividing the fixed point numbers.
+ * Wide integer types. The 128 bit integers are used as underlying data type for
+ * fixed point numbers and the 256 bit integers are used in the multiplication
+ * and division operators.
  */
 using int128_t = ttmath::Int<2>;
 using int256_t = ttmath::Int<4>;
@@ -78,7 +73,7 @@ using float64_t = ttmath::Big<11,52>; // TTMath IEEE 754 double floating point.
 
 /*
  * Compile time template structures for retrieving the extended or narrowed 
- * integer size of the underlying signed and unsigned integer types.
+ * integer type of an underlying signed and unsigned integer type.
  */
 template<typename T> struct extend_int {};
 template<typename T> struct narrow_int {};
@@ -101,9 +96,9 @@ namespace detail
     }
 
     /*
-     * Constexpr function for generating a ttmath 128 bit data type with the 
-     * value 1 << N, where: 0 <= N < 128. N outside of that range causes
-     * undefined behaviour.
+     * Constexpr function for generating a ttmath 128 bit data type with the
+     * value 1 << N, where: 0 <= N < 128. N outside of that range is undefined
+     * behaviour.
      */
     template<typename TTMATH_INT>
     constexpr TTMATH_INT ONE_SHL(int N)
@@ -123,8 +118,8 @@ namespace detail
     }
 
     /*
-     * Constexpr function for generating a ttmath 128 bit data type with the 
-     * value (1 << N) - 1, where: 0 <= N < 128. N outside of that range causes
+     * Constexpr function for generating a ttmath 128 bit data type with the
+     * value (1 << N) - 1, where: 0 <= N < 128. N outside of that range is
      * undefined behaviour.
      */
     template<typename TTMATH_INT>
@@ -169,8 +164,8 @@ namespace detail
 
 
 /*
- * Simple TTMath to_string function that generates a string of the underlying 
- * 2's complement data as a hex string. Not padded in any way.
+ * Simple TTMath to_string function that generates a hex string of the underlying 
+ * ttmaths 2's complement data.
  */
 template <unsigned long _N> 
 static inline std::string to_string_hex(const ttmath::Int<_N> &a) 
@@ -214,44 +209,61 @@ public:
 
 
     /*
-     * Friend declaration of addition and subtraction arithmetic operators on fixed 
-     * point numbers.
+     * Friend declaration of addition and subtraction arithmetic operators on 
+     * fixed point numbers.
      */
     template<
         int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
         int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
-    LHS<std::max(LHS_INT_BITS,RHS_INT_BITS)+1,std::max(LHS_FRAC_BITS,RHS_FRAC_BITS)>
-    friend operator+(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
-              const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
+    LHS<std::max(LHS_INT_BITS,RHS_INT_BITS)+1,
+        std::max(LHS_FRAC_BITS,RHS_FRAC_BITS) >
+    friend operator+(
+        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+        const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
 
     template<
         int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
         int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
-    LHS<std::max(LHS_INT_BITS,RHS_INT_BITS)+1,std::max(LHS_FRAC_BITS,RHS_FRAC_BITS)>
-    friend operator-(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
-              const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
+    LHS<std::max(LHS_INT_BITS,RHS_INT_BITS)+1,
+        std::max(LHS_FRAC_BITS,RHS_FRAC_BITS) >
+    friend operator-(
+        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+        const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
 
     template<int _INT_BITS, int _FRAC_BITS, template<int,int> class RHS>
-    friend RHS<_INT_BITS,_FRAC_BITS> operator-(const RHS<_INT_BITS,_FRAC_BITS> &rhs);
+    friend RHS<_INT_BITS,_FRAC_BITS> operator-(
+        const RHS<_INT_BITS,_FRAC_BITS> &rhs);
 
 
     /*
-     * Friend declaration of multiplication and division arithmetic operators on 
+     * Friend declaration of multiplication and division arithmetic operators on
      * fixed point numbers.
      */
     template<
         int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
         int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
     friend LHS<LHS_INT_BITS+RHS_INT_BITS,LHS_FRAC_BITS+RHS_FRAC_BITS>
-    operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
-              const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
+    operator*(
+        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+        const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
 
     template<
         int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
         int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
     friend LHS<LHS_INT_BITS,LHS_FRAC_BITS>
-    operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
-              const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
+    operator/(
+        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+        const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
+
+
+    /*
+     * Friend declaration for rounding of fixed point numbers.
+     */
+    template<
+        int LHS_INT_BITS, int LHS_FRAC_BITS,
+        int RHS_INT_BITS, int RHS_FRAC_BITS, template<int,int> class RHS>
+    friend RHS<LHS_INT_BITS,LHS_FRAC_BITS> rnd(
+        const RHS<RHS_INT_BITS, RHS_FRAC_BITS> &rhs);
 
 
     /*
@@ -263,29 +275,41 @@ public:
 
 
     /*
-     * Friend declaration of rounding of fixed point numbers.
-     */
-    template<
-        int LHS_INT_BITS, int LHS_FRAC_BITS,
-        int RHS_INT_BITS, int RHS_FRAC_BITS, template<int,int> class RHS>
-    friend RHS<LHS_INT_BITS,LHS_FRAC_BITS> rnd(const RHS<RHS_INT_BITS, RHS_FRAC_BITS> &rhs);
-
-
-    /*
      * Specialized to_string function for fixed point numbers.
      */
     std::string to_string() const noexcept
     {
         // Extract integer part.
-        using int_type = typename narrow_int<_128_INT_TYPE>::type;
-        int_type integer = static_cast<int_type>((this->num >> 64).ToUInt());
+        using narrow_int_type = typename narrow_int<int_type>::type;
+        narrow_int_type integer = narrow_int_type((this->num >> 64).ToUInt());
         std::string integer_str( std::to_string(integer) );
 
         // Append fractional part if it exists.
         if (FRAC_BITS > 0)
+        {
             return integer_str + " + " + this->get_frac_quotient();
+        }
         else
+        {
             return integer_str;
+        }
+    }
+
+
+    /*
+     * Explilcit conversion to double data type.
+     */
+    explicit operator double() const
+    {
+        /*
+         * Truncate num to 64 bits, with as many fractional bits remaining as 
+         * possible without truncating any integer bits.
+         */
+        using std::min; using std::max;
+        using narrow_int_type = typename narrow_int<int_type>::type;
+        constexpr int SHIFT_WIDTH = max( min(64, 64-FRAC_BITS), INT_BITS );
+        narrow_int_type num_small = (this->num >> SHIFT_WIDTH).ToUInt();
+        return double(num_small) / double(1ull << (64-SHIFT_WIDTH));
     }
 
 
@@ -296,13 +320,14 @@ protected:
     void construct_from_double(double a)
     {
         /*
-         * NOTE: This magic number is (exactly) the greatest IEEE 754 
-         * Double-Precision Floating-Point number smaller than 1.0. It is used 
-         * to create a ceil funcion out of the ilog2_fast(x+MAGIC) + 1.
+         * NOTE: This magic number is (exactly) the greatest IEEE 754 Double-
+         * Precision Floating-Point number smaller than 1.0. It is used to
+         * create a ceil funcion out of ilog2_fast(x+MAGIC) + 1.
          */
-        constexpr double MAGIC = 0.9999999999999999;
-        long n = detail::ilog2_fast(std::abs(a) + MAGIC) + 2;
-        int64_t num = std::lround(a * double(1ul << (64-n)));
+        using narrow_int_type = typename narrow_int<_128_INT_TYPE>::type;
+        constexpr double MAGIC_CEIL = 0.9999999999999999;
+        long n = detail::ilog2_fast(std::abs(a) + MAGIC_CEIL) + 2;
+        narrow_int_type num = std::lround(a * double(1ul << (64-n)));
         this->num.table[0] = num << n;
         this->num.table[1] = num >> (64-n);
         this->round();
@@ -312,21 +337,22 @@ protected:
 
 
     /*
-     * Helper function for retrieving a string of the fixed point fractional 
+     * Helper function for retrieving a string of the fixed point fractional
      * part on quotient form.
      */
     std::string get_frac_quotient() const noexcept
     {
-        _128_INT_TYPE num_masked = num & 0xFFFFFFFFFFFFFFFF;
+        using std::to_string;
+        int_type num_masked = num & 0xFFFFFFFFFFFFFFFF;
         uint64_t numerator{ (num_masked >> (64-FRAC_BITS)).ToUInt() };
         if (FRAC_BITS > 0)
         {
             uint64_t denominator{ 1ull << FRAC_BITS };
-            return std::to_string(numerator) + "/" + std::to_string(denominator);
+            return to_string(numerator) + "/" + to_string(denominator);
         }
         else
         {
-            // This branch should never be taken. Only here to supress some 
+            // This branch should never be taken. Only here to supress some
             // compiler warnings.
             return std::string{};
         }
@@ -352,7 +378,7 @@ protected:
      */
     void apply_bit_mask_frac() noexcept
     {
-        this->num &= detail::ONE_SHL_M1_INV<int128_t>(64-FRAC_BITS);
+        this->num &= detail::ONE_SHL_M1_INV<int_type>(64-FRAC_BITS);
     }
 
 
@@ -362,7 +388,7 @@ protected:
      */
     void round() noexcept
     {
-        num += _128_INT_TYPE(1) << (63-FRAC_BITS);
+        num += detail::ONE_SHL<int_type>(63-FRAC_BITS);
     }
 
 
@@ -370,8 +396,8 @@ protected:
      * Underlying data type. It will either be a signed or unsigned 128-bit
      * integer.
      */
-    _128_INT_TYPE num{};
     using int_type = _128_INT_TYPE;
+    int_type num{};
 
 
     /*
@@ -404,22 +430,6 @@ public:
 
 
     /*
-     * Explilcit conversion to double data type.
-     */
-    explicit operator double() const
-    {
-        /*
-         * Truncate num to 64 bits, with as many fractional bits remaining as 
-         * possible without truncating any integer bits.
-         */
-        using std::min; using std::max;
-        constexpr int SHIFT_WIDTH = max( min(64, 64-FRAC_BITS), INT_BITS );
-        int64_t num_small = (this->num >> SHIFT_WIDTH).ToUInt();
-        return double(num_small) / double(1ull << (64-SHIFT_WIDTH));
-    }
-
-
-    /*
      * Display the state of the fixed point number through the retuned string.
      * The string contains formated output for debuging purposes.
      */
@@ -438,9 +448,8 @@ public:
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
     SignedFixedPoint<INT_BITS, FRAC_BITS> &
-       operator=(const BaseFixedPoint<RHS_INT_BITS,
-                                      RHS_FRAC_BITS, 
-                                      RHS_128_INT_TYPE> &rhs) noexcept
+    operator=(const BaseFixedPoint<
+        RHS_INT_BITS,RHS_FRAC_BITS, RHS_128_INT_TYPE > &rhs) noexcept
     {
         this->num = rhs.num;
 
@@ -488,9 +497,8 @@ public:
     }
 
     template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
-    SignedFixedPoint(const BaseFixedPoint<RHS_INT_BITS,
-                                          RHS_FRAC_BITS, 
-                                          RHS_128_INT_TYPE> &rhs) noexcept
+    SignedFixedPoint(const BaseFixedPoint<
+            RHS_INT_BITS,RHS_FRAC_BITS,RHS_128_INT_TYPE > &rhs) noexcept
     {
         *this = rhs;
     }
@@ -501,9 +509,8 @@ public:
      */
     template <int RHS_INT_BITS,int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
     SignedFixedPoint<INT_BITS, FRAC_BITS> &
-        rnd(const BaseFixedPoint<RHS_INT_BITS, 
-                                  RHS_FRAC_BITS, 
-                                  RHS_128_INT_TYPE> &rhs)
+        rnd(const BaseFixedPoint<
+            RHS_INT_BITS,RHS_FRAC_BITS,RHS_128_INT_TYPE > &rhs)
     {
         this->num = rhs.num;
         this->round();
@@ -543,13 +550,12 @@ public:
 
 
     /*
-     * Test if over-/underflow has occured before possible sign extension.
+     * Test if overflow has occured before possible sign extension.
      */
     bool test_overflow() const noexcept
     {
-        constexpr uint128_t MASK = detail::ONE_SHL_M1_INV<uint128_t>(
-                64+INT_BITS-1
-        );
+        using detail::ONE_SHL_M1_INV;
+        constexpr uint128_t MASK = ONE_SHL_M1_INV<uint128_t>(64+INT_BITS-1);
         return !( (this->num & MASK) == 0 || (this->num & MASK) == MASK );
     }
 
@@ -560,7 +566,8 @@ private:
      */
     bool sign() const noexcept
     {
-        return int128_t(0) != ( this->num & detail::ONE_SHL<int128_t>(64+INT_BITS-1) );
+        using detail::ONE_SHL;
+        return int128_t(0) != ( this->num & ONE_SHL<int128_t>(64+INT_BITS-1) );
     }
 };
 
@@ -575,6 +582,10 @@ class UnsignedFixedPoint : public BaseFixedPoint<INT_BITS,FRAC_BITS,uint128_t>
      * get_num_sign_extended() should always return a fully masked num in this
      * class.
      */
+    uint128_t get_num_sign_extended() const noexcept override
+    {
+        return this->num & detail::ONE_SHL_M1<int128_t>(64+INT_BITS);
+    }
 };
 
 
@@ -600,7 +611,8 @@ operator+(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     if ( std::max(LHS_INT_BITS,RHS_INT_BITS) +
          std::max(LHS_FRAC_BITS,RHS_FRAC_BITS) < 64 )
     {
-        using short_int = typename narrow_int<typename LHS<1,0>::int_type>::type;
+        using int_type = typename LHS<1,0>::int_type;
+        using short_int = typename narrow_int<int_type>::type;
         uint64_t lhs_frac = lhs.num.table[0] >> (64-RES_FRAC_BITS);
         uint64_t lhs_int = lhs.num.table[1] << (RES_FRAC_BITS);
         uint64_t rhs_frac = rhs.num.table[0] >> (64-RES_FRAC_BITS);
@@ -620,9 +632,13 @@ operator+(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         // No sign extension or masking needed due to correct word length.
         res.num.table[0] = lhs.num.table[0] + rhs.num.table[0];
         if( res.num.table[0] < lhs.num.table[0] ) 
+        {
             res.num.table[1]  = lhs.num.table[1] + rhs.num.table[1] + 1;
+        }
         else
+        {
             res.num.table[1]  = lhs.num.table[1] + rhs.num.table[1];
+        }
     }
     return res;
 }
@@ -661,7 +677,8 @@ operator-(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     if ( std::max(LHS_INT_BITS,RHS_INT_BITS) +
          std::max(LHS_FRAC_BITS,RHS_FRAC_BITS) < 64 )
     {
-        using short_int = typename narrow_int<typename LHS<1,0>::int_type>::type;
+        using int_type = typename LHS<1,0>::int_type;
+        using short_int = typename narrow_int<int_type>::type;
         uint64_t lhs_frac = lhs.num.table[0] >> (64-RES_FRAC_BITS);
         uint64_t lhs_int = lhs.num.table[1] << (RES_FRAC_BITS);
         uint64_t rhs_frac = rhs.num.table[0] >> (64-RES_FRAC_BITS);
@@ -681,9 +698,13 @@ operator-(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         // No sign extension or masking needed due to correct word length.
         res.num.table[0] = lhs.num.table[0] - rhs.num.table[0];
         if( lhs.num.table[0] < rhs.num.table[0] ) 
+        {
             res.num.table[1] = lhs.num.table[1] - rhs.num.table[1] - 1;
+        }
         else
+        {
             res.num.table[1] = lhs.num.table[1] - rhs.num.table[1];
+        }
     }
     return res;
 }

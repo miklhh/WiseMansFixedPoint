@@ -446,54 +446,79 @@ TEST_CASE("Rounding test.")
 
 TEST_CASE("Test of negative wordlengths.")
 {
-//    /*
-//     * These fixed point numbers should, of course, act as any other fixed point 
-//     * numbers and therefore should be covered by the other tests. Here we just
-//     * test the different kinds of operator to see if the compiler generates any
-//     * wierd compiler warnings due to negative shifts or likewise.
-//     */
-//    {
-//        std::stringstream result{};
-//        FixedPoint<-4,10> fix_a{ 0.125 / 4.0 };
-//        fix_a + fix_a;
-//        fix_a - fix_a;
-//        fix_a * fix_a;
-//        fix_a / fix_a;
-//        fix_a += fix_a;
-//        fix_a -= fix_a;
-//        fix_a *= fix_a;
-//        fix_a /= fix_a;
-//        result << fix_a;
-//    }
-//    {
-//        std::stringstream result{};
-//        FixedPoint<10,-4> fix_a{ 32 };
-//        fix_a + fix_a;
-//        fix_a - fix_a;
-//        fix_a * fix_a;
-//        fix_a / fix_a;
-//        fix_a += fix_a;
-//        fix_a -= fix_a;
-//        fix_a *= fix_a;
-//        fix_a /= fix_a;
-//        result << fix_a;
-//    }
-//
-//
-//    /*
-//     * Bonus tests just for fun.
-//     */
-//    {
-//        std::stringstream result{};
-//        FixedPoint<6,-2> fix_a{ 16 };
-//        FixedPoint<6,0> fix_b{ 3 };
-//        FixedPoint<6,-2> fix_res{};
-//        fix_res = fix_a + fix_b;
-//        result << fix_res;
-//        fix_res = rnd<6,-2>(fix_a + fix_b);
-//        result << "|" << fix_res;
-//        REQUIRE(result.str() == std::string("16|20"));
-//    }
+    /*
+     * TODO: Could definetly use some more tests here.
+     */
+    {
+        std::stringstream result{};
+        FixedPoint<-2,10> fix_a{ -0.125 };
+        result << fix_a << "|";
+        fix_a /= FixedPoint<4,0>(4);
+        result << fix_a;
+        REQUIRE(result.str() == std::string("-1 + 896/1024|-1 + 992/1024"));
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<-2,10> fix_a{ -0.125 };
+        result << (fix_a + fix_a) << "|";   // No overflow.
+        result << (fix_a - fix_a) << "|";   // No overflow.
+        fix_a += fix_a;                     // Overflow.
+        result << fix_a;
+        REQUIRE(result.str() == std::string("-1 + 768/1024|0 + 0/1024|0 + 0/1024"));
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<10,-3> fix_a{ 130.125 }; // Rounded to 128.
+        FixedPoint<10,-1> fix_b{ 3.75 };    // Rounded to 4.
+        result << fix_a << "|" << fix_b;
+        REQUIRE(result.str() == std::string("128|4"));
+
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<10,-3> fix_a{ 130.125 }; // Rounded to 128.
+        FixedPoint<10,-1> fix_b{ 6.75 };    // Rounded to 6.
+        result << fix_a * fix_b << "|";     // No overflow (768).
+        fix_a *= fix_b;                     // Overflow (-256).
+        result << fix_a;
+        REQUIRE(result.str() == std::string("768|-256"));
+        fix_a * fix_a;
+        fix_a / fix_a;
+        fix_a += fix_a;
+        fix_a -= fix_a;
+        fix_a *= fix_a;
+        fix_a /= fix_a;
+        result << fix_a;
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<10,-4> fix_a{ 32 };
+        fix_a + fix_a;
+        fix_a - fix_a;
+        fix_a * fix_a;
+        fix_a / fix_a;
+        fix_a += fix_a;
+        fix_a -= fix_a;
+        fix_a *= fix_a;
+        fix_a /= fix_a;
+        result << fix_a;
+    }
+
+
+    /*
+     * Bonus tests just for fun.
+     */
+    {
+        std::stringstream result{};
+        FixedPoint<6,-2> fix_a{ 16 };
+        FixedPoint<6,0> fix_b{ 3 };
+        FixedPoint<6,-2> fix_res{};
+        fix_res = fix_a + fix_b;
+        result << fix_res;
+        fix_res = rnd<6,-2>(fix_a + fix_b);
+        result << "|" << fix_res;
+        REQUIRE(result.str() == std::string("16|20"));
+    }
 }
 
 
@@ -629,7 +654,6 @@ TEST_CASE("Addition performance.")
      */
     using namespace std::chrono;
     const int ITERATIONS=1000000;
-    //double factor = 0.999995;
     double factor = 1.0 - 5.0/std::pow(2, 20);
     const FixedPoint<1,20> fix_factor{ factor };
     std::cout << "Results from addition performance test:" << std::endl;

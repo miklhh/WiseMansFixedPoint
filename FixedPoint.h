@@ -60,6 +60,16 @@
 
 
 /*
+ * Test and gather support of if constexpr.
+ */
+#ifdef __cpp_if_constexpr
+    #define CONSTEXPR constexpr
+#else
+    #define CONSTEXPR
+#endif
+
+
+/*
  * Wide integer types. The 128 bit integers are used as underlying data type for
  * fixed point numbers and the 256 bit integers are used in the multiplication
  * and division operators.
@@ -285,7 +295,7 @@ public:
         std::string integer_str( std::to_string(integer) );
 
         // Append fractional part if it exists.
-        if (FRAC_BITS > 0)
+        if CONSTEXPR (FRAC_BITS > 0)
         {
             return integer_str + " + " + this->get_frac_quotient();
         }
@@ -345,16 +355,10 @@ protected:
         using std::to_string;
         int_type num_masked = num & 0xFFFFFFFFFFFFFFFF;
         uint64_t numerator{ (num_masked >> (64-FRAC_BITS)).ToUInt() };
-        if (FRAC_BITS > 0)
+        if CONSTEXPR (FRAC_BITS > 0)
         {
             uint64_t denominator{ 1ull << FRAC_BITS };
             return to_string(numerator) + "/" + to_string(denominator);
-        }
-        else
-        {
-            // This branch should never be taken. Only here to supress some
-            // compiler warnings.
-            return std::string{};
         }
     }
 
@@ -453,7 +457,7 @@ public:
     {
         this->num = rhs.num;
 
-        if (INT_BITS < RHS_INT_BITS)
+        if CONSTEXPR (INT_BITS < RHS_INT_BITS)
         {
             #ifdef _DEBUG_SHOW_OVERFLOW_INFO
                 /*
@@ -488,7 +492,7 @@ public:
         /*
          * Truncate fractional bits if necessary.
          */
-        if (FRAC_BITS < RHS_FRAC_BITS)
+        if CONSTEXPR (FRAC_BITS < RHS_FRAC_BITS)
         {
             this->apply_bit_mask_frac();
         }
@@ -606,22 +610,41 @@ operator+(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     /*
      * Specialized addition operator for when the resulting word length is 
      * smaller than or equal to 64 bits. This specialized version is faster to
-     * execute since it does not need to perform the wise addition.
+     * execute since it does not need to perform the wide addition.
      */
-    if ( std::max(LHS_INT_BITS,RHS_INT_BITS) +
-         std::max(LHS_FRAC_BITS,RHS_FRAC_BITS) < 64 )
+    if CONSTEXPR ( std::max(LHS_INT_BITS,RHS_INT_BITS) +
+                   std::max(LHS_FRAC_BITS,RHS_FRAC_BITS) < 64 )
     {
         using int_type = typename LHS<1,0>::int_type;
         using short_int = typename narrow_int<int_type>::type;
-        uint64_t lhs_frac = lhs.num.table[0] >> (64-RES_FRAC_BITS);
-        uint64_t lhs_int = lhs.num.table[1] << (RES_FRAC_BITS);
-        uint64_t rhs_frac = rhs.num.table[0] >> (64-RES_FRAC_BITS);
-        uint64_t rhs_int = rhs.num.table[1] << (RES_FRAC_BITS);
+        uint64_t lhs_int, rhs_int, lhs_frac, rhs_frac;
+        if CONSTEXPR (RES_FRAC_BITS <= 0) 
+        {
+            lhs_frac = 0;
+            rhs_frac = 0;
+            lhs_int = lhs.num.table[1];
+            rhs_int = rhs.num.table[1];
+        }
+        else 
+        {
+            lhs_frac = lhs.num.table[0] >> (64-RES_FRAC_BITS);
+            rhs_frac = rhs.num.table[0] >> (64-RES_FRAC_BITS);
+            lhs_int = lhs.num.table[1] << (RES_FRAC_BITS);
+            rhs_int = rhs.num.table[1] << (RES_FRAC_BITS);
+        }
         short_int rhs_short = rhs_int | rhs_frac;
         short_int lhs_short = lhs_int | lhs_frac;
         short_int res_short = lhs_short + rhs_short;
-        res.num.table[0] = res_short << (64-RES_FRAC_BITS);
-        res.num.table[1] = res_short >> (RES_FRAC_BITS);
+        if CONSTEXPR (RES_FRAC_BITS <= 0)
+        {
+            res.num.table[0] = 0;
+            res.num.table[1] = res_short;
+        }
+        else
+        {
+            res.num.table[0] = res_short << (64-RES_FRAC_BITS);
+            res.num.table[1] = res_short >> (RES_FRAC_BITS);
+        }
     }
     /*
      * General addition operator for wide fixed point numbers. This branch is
@@ -674,20 +697,39 @@ operator-(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
      * smaller than or equal to 64 bits. This specialized version is faster to
      * execute since it does not need to perform the wise addition.
      */
-    if ( std::max(LHS_INT_BITS,RHS_INT_BITS) +
-         std::max(LHS_FRAC_BITS,RHS_FRAC_BITS) < 64 )
+    if CONSTEXPR ( std::max(LHS_INT_BITS,RHS_INT_BITS) +
+                   std::max(LHS_FRAC_BITS,RHS_FRAC_BITS) < 64 )
     {
         using int_type = typename LHS<1,0>::int_type;
         using short_int = typename narrow_int<int_type>::type;
-        uint64_t lhs_frac = lhs.num.table[0] >> (64-RES_FRAC_BITS);
-        uint64_t lhs_int = lhs.num.table[1] << (RES_FRAC_BITS);
-        uint64_t rhs_frac = rhs.num.table[0] >> (64-RES_FRAC_BITS);
-        uint64_t rhs_int = rhs.num.table[1] << (RES_FRAC_BITS);
+        uint64_t lhs_int, lhs_frac, rhs_int, rhs_frac;
+        if CONSTEXPR (RES_FRAC_BITS <= 0)
+        {
+            lhs_frac = 0;
+            rhs_frac = 0;
+            lhs_int = lhs.num.table[1];
+            rhs_int = rhs.num.table[1];
+        }
+        else
+        {
+            lhs_frac = lhs.num.table[0] >> (64-RES_FRAC_BITS);
+            rhs_frac = rhs.num.table[0] >> (64-RES_FRAC_BITS);
+            lhs_int = lhs.num.table[1] << (RES_FRAC_BITS);
+            rhs_int = rhs.num.table[1] << (RES_FRAC_BITS);
+        }
         short_int rhs_short = rhs_int | rhs_frac;
         short_int lhs_short = lhs_int | lhs_frac;
         short_int res_short = lhs_short - rhs_short;
-        res.num.table[0] = res_short << (64-RES_FRAC_BITS);
-        res.num.table[1] = res_short >> (RES_FRAC_BITS);
+        if CONSTEXPR (RES_FRAC_BITS <= 0)
+        {
+            res.num.table[0] = 0;
+            res.num.table[1] = res_short;
+        }
+        else
+        {
+            res.num.table[0] = res_short << (64-RES_FRAC_BITS);
+            res.num.table[1] = res_short >> (RES_FRAC_BITS);
+        }
     }
     /*
      * General suptraction operator for wide fixed point numbers. This branch is
@@ -697,7 +739,7 @@ operator-(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     {
         // No sign extension or masking needed due to correct word length.
         res.num.table[0] = lhs.num.table[0] - rhs.num.table[0];
-        if( lhs.num.table[0] < rhs.num.table[0] ) 
+        if ( lhs.num.table[0] < rhs.num.table[0] ) 
         {
             res.num.table[1] = lhs.num.table[1] - rhs.num.table[1] - 1;
         }
@@ -736,20 +778,55 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     /*
      * Specialized multiplication operator for when the resulting word length 
      * is smaller than or equal to 64 bits. This specialized version is faster 
-     * to execute since it does not need to perform the wise addition.
+     * to execute since it does not need to perform the wide multiplication.
      */
-    if (LHS_INT_BITS+LHS_FRAC_BITS+RHS_INT_BITS+RHS_FRAC_BITS <= 64)
+    if CONSTEXPR (LHS_INT_BITS+LHS_FRAC_BITS+RHS_INT_BITS+RHS_FRAC_BITS <= 64)
     {
         using short_int = typename narrow_int<typename LHS<1,0>::int_type>::type;
-        uint64_t lhs_frac = lhs.num.table[0] >> (64-LHS_FRAC_BITS);
-        uint64_t lhs_int = lhs.num.table[1] << (LHS_FRAC_BITS);
-        uint64_t rhs_frac = rhs.num.table[0] >> (64-RHS_FRAC_BITS);
-        uint64_t rhs_int = rhs.num.table[1] << (RHS_FRAC_BITS);
+        uint64_t lhs_int, lhs_frac, rhs_int, rhs_frac;
+        if CONSTEXPR (LHS_FRAC_BITS <= 0)
+        {
+            lhs_frac = 0;
+            lhs_int = lhs.num.table[1];
+        }
+        else
+        {
+            lhs_frac = lhs.num.table[0] >> (64-LHS_FRAC_BITS);
+            lhs_int = lhs.num.table[1] << (LHS_FRAC_BITS);
+        }
+        if CONSTEXPR (RHS_FRAC_BITS <= 0)
+        {
+            rhs_frac = 0;
+            rhs_int = rhs.num.table[1];
+        }
+        else
+        {
+            rhs_frac = rhs.num.table[0] >> (64-RHS_FRAC_BITS);
+            rhs_int = rhs.num.table[1] << (RHS_FRAC_BITS);
+        }
         short_int rhs_short = rhs_int | rhs_frac;
         short_int lhs_short = lhs_int | lhs_frac;
         short_int res_short = lhs_short * rhs_short;
-        res.num.table[0] = res_short << (64-LHS_FRAC_BITS-RHS_FRAC_BITS);
-        res.num.table[1] = res_short >> (LHS_FRAC_BITS+RHS_FRAC_BITS);
+        if CONSTEXPR (LHS_FRAC_BITS <= 0 && RHS_FRAC_BITS <= 0)
+        {
+            res.num.table[0] = 0;
+            res.num.table[1] = res_short;
+        }
+        else if CONSTEXPR (LHS_FRAC_BITS <= 0 && RHS_FRAC_BITS > 0)
+        {
+            res.num.table[0] = res_short << (64-RHS_FRAC_BITS);
+            res.num.table[1] = res_short >> (RHS_FRAC_BITS);
+        }
+        else if CONSTEXPR (LHS_FRAC_BITS > 0 && RHS_FRAC_BITS <= 0)
+        {
+            res.num.table[0] = res_short << (64-LHS_FRAC_BITS);
+            res.num.table[1] = res_short >> (LHS_FRAC_BITS);
+        }
+        else
+        {
+            res.num.table[0] = res_short << (64-LHS_FRAC_BITS-RHS_FRAC_BITS);
+            res.num.table[1] = res_short >> (LHS_FRAC_BITS+RHS_FRAC_BITS);
+        }
     }
     else
     {

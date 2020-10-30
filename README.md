@@ -48,16 +48,21 @@ a = a + b;
   | < -- <4,3>{ -5.375 } (overflow here!!)
 ```
 
-# To write about.
+# To document.
  * Correct rounding when using floating point constructor.
  * Round to nearest (`rnd<7,5>(fix)`).
  * Saturation (`sat<12,13>(fix)`).
  * Compile flag `-D_SHOW_OVERFLOW_INFO`.
  * Overflow detection uses `64-INT_BITS` guard bits. This should detect overflow in all cases since a limit on how big fixed point numbers can be is imposed.
  * Conversion to double-precision floating-point uses at most 64 bits of the fixed point number in conversion (all integer bits).
+ * Constructor always performs rounding.
+ * All function prototypes.
+ * Usable with C++ >= 14, but recomanded to use with C++ >= 17.
 
 # Todo:
  * ~~The specialized `_INT128_t construct_from_double(double)` function is now speciallized for signed integers only, and should be moved and specialized in the signed and unsigned types.~~
- * Should add some tests to see if the new `int detail::ilog2_fast(double)` function, the floating-point constructor and `explicit operator double()` have many flaws.
- * Fix all warnings when int/frac sizes <= 0.
- * What do we want to do with arithmetic between signed and unsigned types?
+ * ~~Should add some tests to see if the new `int detail::ilog2_fast(double)` function, the floating-point constructor and `explicit operator double()` have many flaws.~~
+ * ~~Fix all warnings when int/frac sizes <= 0.~~
+ * **What do we want to do with arithmetic between signed and unsigned types?**
+ * Should unary negation increase word length by one?
+ * Remove the debuging function `std::string to_string_hex(const ttmath::Int<N>)`.

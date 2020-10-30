@@ -66,3 +66,4 @@ a = a + b;
  * **What do we want to do with arithmetic between signed and unsigned types?**
  * Should unary negation increase word length by one?
  * Remove the debuging function `std::string to_string_hex(const ttmath::Int<N>)`.
+ * `INT_BITS=64` with clang ver. 12.0.0 on Darwin 19.6.0 seems to not function correctly. All fixed point numbers with `INT=_BITS=64` seems to evaluate to zero.

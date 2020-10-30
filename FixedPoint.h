@@ -332,12 +332,12 @@ protected:
         /*
          * NOTE: This magic number is (exactly) the greatest IEEE 754 Double-
          * Precision Floating-Point number smaller than 1.0. It is used to
-         * create a ceil funcion out of ilog2_fast(x+MAGIC) + 1.
+         * create a fast std::ceil(std::log2(x+1)) from ilog2_fast(x+magic)+1.
          */
         using narrow_int_type = typename narrow_int<_128_INT_TYPE>::type;
         constexpr double MAGIC_CEIL = 0.9999999999999999;
         long n = detail::ilog2_fast(std::abs(a) + MAGIC_CEIL) + 2;
-        narrow_int_type num = std::lround(a * double(1ul << (64-n)));
+        narrow_int_type num = std::llround(a * double(1ull << (64-n)));
         this->num.table[0] = num << n;
         this->num.table[1] = num >> (64-n);
         this->round();
@@ -353,7 +353,8 @@ protected:
     std::string get_frac_quotient() const noexcept
     {
         using std::to_string;
-        int_type num_masked = num & 0xFFFFFFFFFFFFFFFF;
+        int_type num_masked = num;
+        num_masked.table[1] = 0;
         uint64_t numerator{ (num_masked >> (64-FRAC_BITS)).ToUInt() };
         if CONSTEXPR (FRAC_BITS > 0)
         {

@@ -286,9 +286,10 @@ public:
 
     /*
      * Function for setting the underlying data type to its sign extended
-     * representation. This COULD have performance benefits over
-     * 'this->num = this->get_num_sign_extended()' if INT_BITS > 0, although
-     * tests seem to show that this isn't usually the case.
+     * representation. This could have performance benefits over using
+     * 'this->num = this->get_num_sign_extended()', if INT_BITS > 0. Profiling
+     * the Cooridnate Descent project shows an approx. 20% performance increase 
+     * using this optimization.
      */
     virtual void set_num_sign_extended() noexcept = 0;
 
@@ -351,7 +352,7 @@ protected:
         this->num.table[1] = num >> (64-n);
         this->round();
         this->apply_bit_mask_frac();
-        this->num = this->get_num_sign_extended();
+        this->set_num_sign_extended();
     }
 
 
@@ -480,7 +481,7 @@ public:
                     ss << "<" << RHS_INT_BITS << "," << RHS_FRAC_BITS << "> ";
                     ss << "--> " << "<" << INT_BITS << "," << FRAC_BITS << "> ";
                     ss << "of value: " << this->to_string() << " ";
-                    this->num = this->get_num_sign_extended();
+                    this->set_num_sign_extended();
                     ss << "truncated to: " << this->to_string();
                     _DEBUG_PRINT_FUNC(ss.str().c_str());
                 }
@@ -489,14 +490,13 @@ public:
                     /*
                      * Sign extend (possibly truncate) MSB side.
                      */
-                    this->num = this->get_num_sign_extended();
+                    this->set_num_sign_extended();
                 }
             #else
                 /*
                  * Sign extend (possibly truncate) MSB side.
                  */
-                this->num = this->get_num_sign_extended();
-                //set_num_sign_extended();
+                this->set_num_sign_extended();
             #endif
         }
 
@@ -530,7 +530,7 @@ public:
         this->num = rhs.num;
         this->round();
         this->apply_bit_mask_frac();
-        this->num = this->get_num_sign_extended();
+        this->set_num_sign_extended();
         return *this;
     }
 
@@ -808,7 +808,7 @@ operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     long_int long_lhs = lhs.num;
     long_int long_rhs = rhs.num;
     res.num = (long_int(long_lhs << 128) / long_rhs) >> 64;
-    res.num = res.get_num_sign_extended();
+    res.set_num_sign_extended();
     res.apply_bit_mask_frac();
     return res;
 }
@@ -897,7 +897,7 @@ RHS<INT_BITS,FRAC_BITS> operator-(const RHS<INT_BITS,FRAC_BITS> &rhs)
 {
     RHS<INT_BITS,FRAC_BITS> res{};
     res.num = -rhs.num;
-    res.num = res.get_num_sign_extended();
+    res.set_num_sign_extended();
     res.apply_bit_mask_frac();
     return res;
 }
@@ -915,7 +915,7 @@ RHS<LHS_INT_BITS,LHS_FRAC_BITS> rnd(const RHS<RHS_INT_BITS, RHS_FRAC_BITS> &rhs)
     res.num = rhs.num;
     res.round();
     res.apply_bit_mask_frac();
-    res.num = res.get_num_sign_extended();
+    res.set_num_sign_extended();
     return res;
 }
 

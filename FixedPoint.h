@@ -65,7 +65,7 @@
 #ifdef __cpp_if_constexpr
     #define CONSTEXPR constexpr
 #else
-    #define CONSTEXPR
+    #define CONSTEXPR /* no constexpr */
 #endif
 
 
@@ -285,6 +285,15 @@ public:
 
 
     /*
+     * Function for setting the underlying data type to its sign extended
+     * representation. This COULD have performance benefits over
+     * 'this->num = this->get_num_sign_extended()' if INT_BITS > 0, although
+     * tests seem to show that this isn't usually the case.
+     */
+    virtual void set_num_sign_extended() noexcept = 0;
+
+
+    /*
      * Specialized to_string function for fixed point numbers.
      */
     std::string to_string() const noexcept
@@ -487,6 +496,7 @@ public:
                  * Sign extend (possibly truncate) MSB side.
                  */
                 this->num = this->get_num_sign_extended();
+                //set_num_sign_extended();
             #endif
         }
 
@@ -535,7 +545,8 @@ public:
     /*
      * Friend declaration for saturation function.
      */
-    template <int LHS_INT_BITS,int LHS_FRAC_BITS,int RHS_INT_BITS,int RHS_FRAC_BITS>
+    template <
+        int LHS_INT_BITS,int LHS_FRAC_BITS,int RHS_INT_BITS,int RHS_FRAC_BITS>
     friend SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> sat(
             const SignedFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs);
 
@@ -551,6 +562,31 @@ public:
             return this->num | detail::ONE_SHL_M1_INV<int128_t>(64+INT_BITS);
         else
             return this->num & detail::ONE_SHL_M1<int128_t>(64+INT_BITS);
+    }
+
+
+    /*
+     * Set the internal num representation sign extended, that is, num with all
+     * bits more significant than the sign bit set to the value of the sign bit.
+     */
+    void set_num_sign_extended() noexcept override
+    {
+        if CONSTEXPR (INT_BITS <= 0)
+        {
+            if ( sign() )
+                this->num |= detail::ONE_SHL_M1_INV<int128_t>(64+INT_BITS);
+            else
+                this->num &= detail::ONE_SHL_M1<int128_t>(64+INT_BITS);
+        }
+        else
+        {
+            constexpr uint64_t mask =    (1ull << (INT_BITS-1)) - 1;
+            constexpr uint64_t nmask = ~((1ull << (INT_BITS-1)) - 1);
+            if (sign())
+                this->num.table[1] |= nmask;
+            else
+                this->num.table[1] &= mask;
+        }
     }
 
 
@@ -571,8 +607,14 @@ private:
      */
     bool sign() const noexcept
     {
-        using detail::ONE_SHL;
-        return int128_t(0) != ( this->num & ONE_SHL<int128_t>(64+INT_BITS-1) );
+        if CONSTEXPR (INT_BITS <= 0)
+        {
+            return this->num.table[0] & (1ull << (64+INT_BITS-1));
+        }
+        else
+        {
+            return this->num.table[1] & (1ull << (INT_BITS-1));
+        }
     }
 };
 

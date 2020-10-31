@@ -520,7 +520,7 @@ public:
 
 
     /*
-     * Assignment from other fixed point number with proper rounind.
+     * Assignment from other fixed point number with proper rounding.
      */
     template <int RHS_INT_BITS,int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
     SignedFixedPoint<INT_BITS, FRAC_BITS> &
@@ -580,12 +580,10 @@ public:
         }
         else
         {
-            constexpr uint64_t mask =    (1ull << (INT_BITS-1)) - 1;
-            constexpr uint64_t nmask = ~((1ull << (INT_BITS-1)) - 1);
             if (sign())
-                this->num.table[1] |= nmask;
+                this->num.table[1] |= ~((1ull << (INT_BITS-1)) - 1);
             else
-                this->num.table[1] &= mask;
+                this->num.table[1] &= (1ull << (INT_BITS-1)) - 1;
         }
     }
 

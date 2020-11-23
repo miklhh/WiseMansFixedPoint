@@ -60,7 +60,7 @@
 
 
 /*
- * Test and gather support of if constexpr.
+ * Test for if constexpr support.
  */
 #ifdef __cpp_if_constexpr
     #define CONSTEXPR constexpr
@@ -78,12 +78,12 @@ using int128_t = ttmath::Int<2>;
 using int256_t = ttmath::Int<4>;
 using uint128_t = ttmath::UInt<2>;
 using uint256_t = ttmath::UInt<4>;
-using float64_t = ttmath::Big<11,52>; // TTMath IEEE 754 double floating point.
 
 
 /*
  * Compile time template structures for retrieving the extended or narrowed 
- * integer type of an underlying signed and unsigned integer type.
+ * integer type of an underlying signed and unsigned integer type. Extension of
+ * 64-bit numbers result in the signed or unsigned __(u)int128_t.
  */
 template<typename T> struct extend_int {};
 template<typename T> struct narrow_int {};
@@ -91,6 +91,8 @@ template<> struct extend_int<int128_t> { using type = int256_t; };
 template<> struct extend_int<uint128_t> { using type = uint256_t; };
 template<> struct narrow_int<int128_t> { using type = int64_t; };
 template<> struct narrow_int<uint128_t> { using type = uint64_t; };
+template<> struct extend_int<int64_t> { using type = __int128_t; };
+template<> struct extend_int<uint64_t> { using type = __uint128_t; };
 
 
 namespace detail
@@ -169,6 +171,15 @@ namespace detail
             res.table[1] = ~0ull;
         }
         return res;
+    }
+
+    /*
+     * Multiplication of type 64bit x 64bit -> 128 bit.
+     */
+    template <typename T>
+    static inline typename extend_int<T>::type mul_64_to_128(T a, T b)
+    {
+        return static_cast<typename extend_int<T>::type>(a) * b;
     }
 }
 
@@ -340,9 +351,10 @@ protected:
     void construct_from_double(double a)
     {
         /*
-         * NOTE: This magic number is (exactly) the greatest IEEE 754 Double-
-         * Precision Floating-Point number smaller than 1.0. It is used to
-         * create a fast std::ceil(std::log2(x+1)) from ilog2_fast(x+magic)+1.
+         * NOTE: This magic number is (exactly) the greatest IEEE 754
+         * Double-Precision Floating-Point number smaller than 1.0. It is
+         * used to create a fast std::ceil(std::log2(std::abs(x)+1)) from
+         * ilog2_fast(std::abs(x)+magic)+1.
          */
         using narrow_int_type = typename narrow_int<_128_INT_TYPE>::type;
         constexpr double MAGIC_CEIL = 0.9999999999999999;
@@ -769,11 +781,29 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
             res.num.table[1] = res_short >> (LHS_FRAC_BITS+RHS_FRAC_BITS);
         }
     }
+    else if CONSTEXPR (LHS_INT_BITS + LHS_FRAC_BITS <= 64 && RHS_INT_BITS + RHS_FRAC_BITS <= 64)
+    {
+        int64_t lhs_short = lhs.num.table[0] >> (64 - LHS_FRAC_BITS) | lhs.num.table[1] << LHS_FRAC_BITS;
+        int64_t rhs_short = rhs.num.table[0] >> (64 - RHS_FRAC_BITS) | rhs.num.table[1] << RHS_FRAC_BITS;
+        __int128_t res_long = detail::mul_64_to_128<int64_t>(lhs_short, rhs_short);
+        res_long <<= (64 - RHS_FRAC_BITS - LHS_FRAC_BITS);
+        res.num.table[1] = res_long >> 64;
+        res.num.table[0] = res_long;
+    }
     else
     {
-        typename extend_int<typename LHS<1,0>::int_type>::type long_lhs = lhs.num;
-        typename extend_int<typename LHS<1,0>::int_type>::type long_rhs = rhs.num;
-        res.num = (long_lhs * long_rhs) >> 64;
+        __int128_t a = lhs.num.table[0];
+        __int128_t b = lhs.num.table[1];
+        __int128_t lhs_long = b << 64 | a;
+        __int128_t c = rhs.num.table[0];
+        __int128_t d = rhs.num.table[1];
+        __int128_t rhs_long = d << 64 | c;
+        lhs_long >>= (64 - LHS_FRAC_BITS);
+        rhs_long >>= (64 - RHS_FRAC_BITS);
+        __int128_t res_long = lhs_long * rhs_long;
+        res_long <<= (64 - RHS_FRAC_BITS - LHS_FRAC_BITS);
+        res.num.table[1] = res_long >> 64;
+        res.num.table[0] = res_long;
     }
     return res;
 }
@@ -809,6 +839,18 @@ operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     res.set_num_sign_extended();
     res.apply_bit_mask_frac();
     return res;
+    
+    //LHS<LHS_INT_BITS, LHS_FRAC_BITS> res{};
+    //__int128_t lhs_long = __int128_t(lhs.num.table[1]) << 64 | __int128_t(lhs.num.table[0]);
+    //__int128_t rhs_long = __int128_t(rhs.num.table[1]) << 64 | __int128_t(rhs.num.table[0]);
+    //lhs_long <<= 64 - LHS_INT_BITS;
+    //rhs_long >>= 64 - RHS_FRAC_BITS;
+    //__int128_t res_long = lhs_long / rhs_long;
+    //if (64 - LHS_INT_BITS >= 64 - RHS_FRAC_BITS)
+    //    res_long >>= ???
+    //res.num.table[1] = res_long >> 64;
+    //res.num.table[0] = res_long;
+    //return res;
 }
 
 template<

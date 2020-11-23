@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -I./ -std=c++17 -march=native -O3 -Wall -Wextra -Wpedantic -Weffc++
+CFLAGS = -I./ -std=c++17 -O3 -march=native -Wall -Wextra -Wpedantic -Weffc++
 CFLAGS_COV = -I./ -std=c++17 --coverage -g -O0 -Wall -Wextra -Wpedantic -Weffc++
 FIXP_HEADER=FixedPoint.h
 

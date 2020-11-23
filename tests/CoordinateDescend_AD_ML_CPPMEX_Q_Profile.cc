@@ -61,8 +61,8 @@ constexpr int GAMMA_HAT_FRAC = 16;
 static void CoordinateDescent(
 
     const std::vector<std::vector<int>> &A_exp,
-    const std::vector<std::vector<FixedPoint<10,2>>> &Sigma_Y_real,
-    const std::vector<std::vector<FixedPoint<10,2>>> &Sigma_Y_imag,
+    const std::vector<std::vector<FixedPoint<10,40>>> &Sigma_Y_real,
+    const std::vector<std::vector<FixedPoint<10,40>>> &Sigma_Y_imag,
     std::vector<FixedPoint<S2_INT,S2_FRAC>> &s2_real,
     std::vector<FixedPoint<S2_INT,S2_FRAC>> &s2_imag,
     std::vector<FixedPoint<GAMMA_HAT_INT,GAMMA_HAT_FRAC>> &gamma_hat,
@@ -273,10 +273,10 @@ int main()
      * implementation, Sigma_Y is stored in column major format, this since iterative
      * reads from Sigma_Y only happens over rows.
      */
-    vector< vector<FixedPoint<10,2>> > Sigma_Y_real(
-        L, vector<FixedPoint<10,2>>(L, FixedPoint<10,2>(0) ));
-    vector< vector<FixedPoint<10,2>> > Sigma_Y_imag(
-        L, vector<FixedPoint<10,2>>(L, FixedPoint<10,2>(0) ));
+    vector< vector<FixedPoint<10,40>> > Sigma_Y_real(
+        L, vector<FixedPoint<10,40>>(L, FixedPoint<10,40>(0) ));
+    vector< vector<FixedPoint<10,40>> > Sigma_Y_imag(
+        L, vector<FixedPoint<10,40>>(L, FixedPoint<10,40>(0) ));
     std::uniform_real_distribution<double> Y_dist(-40, 40);
     std::default_random_engine re;
     for (unsigned col=0; col<L; ++col)
@@ -294,8 +294,8 @@ int main()
             }
             elm.real(elm.real() / M);
             elm.imag(elm.imag() / M);
-            Sigma_Y_real[col][row] = FixedPoint<10,2>(elm.real());
-            Sigma_Y_imag[col][row] = FixedPoint<10,2>(elm.imag());
+            Sigma_Y_real[col][row] = FixedPoint<10,40>(elm.real());
+            Sigma_Y_imag[col][row] = FixedPoint<10,40>(elm.imag());
         }
     }
 

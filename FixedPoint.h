@@ -833,24 +833,16 @@ operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     // Sign extension and masking needed due to uncorrect result word length.
     using long_int = typename extend_int<typename LHS<1,0>::int_type>::type;
     LHS<LHS_INT_BITS, LHS_FRAC_BITS> res{};
-    long_int long_lhs = lhs.num;
     long_int long_rhs = rhs.num;
-    res.num = (long_int(long_lhs << 128) / long_rhs) >> 64;
+    long_int long_lhs{};
+    long_lhs.table[3] = lhs.num.table[1];
+    long_lhs.table[2] = lhs.num.table[0];
+    long_int long_res = long_lhs / long_rhs;
+    res.num.table[1] = long_res.table[2];
+    res.num.table[0] = long_res.table[1];
     res.set_num_sign_extended();
     res.apply_bit_mask_frac();
     return res;
-    
-    //LHS<LHS_INT_BITS, LHS_FRAC_BITS> res{};
-    //__int128_t lhs_long = __int128_t(lhs.num.table[1]) << 64 | __int128_t(lhs.num.table[0]);
-    //__int128_t rhs_long = __int128_t(rhs.num.table[1]) << 64 | __int128_t(rhs.num.table[0]);
-    //lhs_long <<= 64 - LHS_INT_BITS;
-    //rhs_long >>= 64 - RHS_FRAC_BITS;
-    //__int128_t res_long = lhs_long / rhs_long;
-    //if (64 - LHS_INT_BITS >= 64 - RHS_FRAC_BITS)
-    //    res_long >>= ???
-    //res.num.table[1] = res_long >> 64;
-    //res.num.table[0] = res_long;
-    //return res;
 }
 
 template<

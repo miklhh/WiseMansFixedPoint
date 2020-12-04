@@ -840,7 +840,26 @@ operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     long_int long_res = long_lhs / long_rhs;
     res.num.table[1] = long_res.table[2];
     res.num.table[0] = long_res.table[1];
-    res.set_num_sign_extended();
+    #ifdef _DEBUG_SHOW_OVERFLOW_INFO
+        if ( res.test_overflow() )
+        {
+            std::stringstream ss{};
+            ss << "Overflow in division ";
+            ss << "<" << LHS_INT_BITS << "," << LHS_FRAC_BITS << "> ";
+            ss << "of value: " << res.to_string() << " ";
+            res.set_num_sign_extended();
+            ss << "truncated to: " << res.to_string();
+            _DEBUG_PRINT_FUNC(ss.str().c_str());
+        }
+        else
+        {
+            res.set_num_sign_extended();
+        }
+    #else
+        res.set_num_sign_extended();
+    #endif
+
+    //res.set_num_sign_extended();
     res.apply_bit_mask_frac();
     return res;
 }

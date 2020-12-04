@@ -201,6 +201,11 @@ TEST_CASE("Overflow tests")
         result << res_a << "|" << res_b;
         REQUIRE( result.str() == std::string("511 + 512/1024|-512 + 256/1024") );
     }
+
+    // Test if division overflows.
+    FixedPoint<5,10> fix_a{ 8.0 };
+    FixedPoint<3,2>  fix_b{ 0.5 };
+    fix_a / fix_b;
 }
 
 

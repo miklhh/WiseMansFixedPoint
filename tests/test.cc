@@ -489,9 +489,7 @@ TEST_CASE("Test of negative wordlengths.")
         fix_a * fix_a;
         fix_a / fix_a;
         fix_a += fix_a;
-        //fix_a -= fix_a;
         fix_a *= fix_a;
-        //fix_a /= fix_a;
         result << fix_a;
     }
     {
@@ -502,10 +500,61 @@ TEST_CASE("Test of negative wordlengths.")
         fix_a * fix_a;
         fix_a / fix_a;
         fix_a += fix_a;
-        //fix_a -= fix_a;
         fix_a *= fix_a;
-        //fix_a /= fix_a;
         result << fix_a;
+    }
+
+    /*
+     * Single sided negative fractional parts. Tests needed for multiplication.
+     */ 
+    {
+        std::stringstream result{};
+        FixedPoint<10,-2> fix_a{ 16.0 };
+        FixedPoint<8,3> fix_b{ 0.25 };
+        result << fix_a * fix_b;
+        REQUIRE(result.str() == std::string("4 + 0/2"));
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<10,-2> fix_b{ 16.0 };
+        FixedPoint<8,3> fix_a{ 0.25 };
+        result << fix_a * fix_b;
+        REQUIRE(result.str() == std::string("4 + 0/2"));
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<50,-5> fix_b{ 64.0 };
+        FixedPoint<12,30> fix_a{ 0.25 };
+        result << fix_a * fix_b;
+        REQUIRE(result.str() == std::string("16 + 0/33554432"));
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<50,-5> fix_b{ 64.0 };
+        FixedPoint<12,30> fix_a{ 0.25 };
+        result << fix_a * fix_b;
+        REQUIRE(result.str() == std::string("16 + 0/33554432"));
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<50,-5> fix_a{ 64.0 };
+        FixedPoint<12,30> fix_b{ 0.25 };
+        result << fix_a * fix_b;
+        REQUIRE(result.str() == std::string("16 + 0/33554432"));
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<50,-5> fix_a{ 64.0 };
+        FixedPoint<12,60> fix_b{ 0.25 };
+        result << fix_a * fix_b;
+        REQUIRE(result.str() == std::string("16 + 0/36028797018963968"));
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<50,-5> fix_b{ 64.0 };
+        FixedPoint<12,60> fix_a{ 0.25 };
+        result << fix_a * fix_b;
+        REQUIRE(result.str() == std::string("16 + 0/36028797018963968"));
     }
 
 

@@ -181,6 +181,33 @@ namespace detail
     {
         return static_cast<typename extend_int<T>::type>(a) * b;
     }
+
+    /*
+     * Constexpr bounded shift functions. Needed due to negative wordlengths 
+     * causing alot of left shift wider thatn 64 or smaller than zero. These 
+     * constexpr function will shift the (u)int64_t argument a, left/right, n 
+     * times when possible, otherwise return the propriate result.
+     */
+    template <typename T>
+    constexpr T BOUND_SHL(T a, int n)
+    {
+        if (n >= 64)
+            return 0;
+        else if (n <= 0)
+            return a;
+        else
+            return a << n;
+    }
+    template <typename T>
+    constexpr T BOUND_SHR(T a, int n)
+    {
+        if (n >= 64)
+            return 0;
+        else if (n <= 0)
+            return a;
+        else
+            return a >> n;
+    }
 }
 
 
@@ -733,74 +760,84 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
      * is smaller than or equal to 64 bits. This specialized version is faster 
      * to execute since it does not need to perform the wide multiplication.
      */
-    if CONSTEXPR (LHS_INT_BITS+LHS_FRAC_BITS+RHS_INT_BITS+RHS_FRAC_BITS <= 64)
+    constexpr int LHS_TOTAL_BITS = LHS_INT_BITS+LHS_FRAC_BITS;
+    constexpr int RHS_TOTAL_BITS = RHS_INT_BITS+RHS_FRAC_BITS;
+    if CONSTEXPR (LHS_TOTAL_BITS+RHS_TOTAL_BITS <= 64)
     {
-        using short_int = typename narrow_int<typename LHS<1,0>::int_type>::type;
         uint64_t lhs_int, lhs_frac, rhs_int, rhs_frac;
-        if CONSTEXPR (LHS_FRAC_BITS <= 0)
-        {
-            lhs_frac = 0;
-            lhs_int = lhs.num.table[1];
-        }
-        else
-        {
-            lhs_frac = lhs.num.table[0] >> (64-LHS_FRAC_BITS);
-            lhs_int = lhs.num.table[1] << (LHS_FRAC_BITS);
-        }
-        if CONSTEXPR (RHS_FRAC_BITS <= 0)
-        {
-            rhs_frac = 0;
-            rhs_int = rhs.num.table[1];
-        }
-        else
-        {
-            rhs_frac = rhs.num.table[0] >> (64-RHS_FRAC_BITS);
-            rhs_int = rhs.num.table[1] << (RHS_FRAC_BITS);
-        }
+        lhs_int = detail::BOUND_SHL(lhs.num.table[1], LHS_FRAC_BITS);
+        rhs_int = detail::BOUND_SHL(rhs.num.table[1], RHS_FRAC_BITS);
+        lhs_frac = detail::BOUND_SHR(lhs.num.table[0], 64-LHS_FRAC_BITS);
+        rhs_frac = detail::BOUND_SHR(rhs.num.table[0], 64-RHS_FRAC_BITS);
+
+        using short_int = typename narrow_int<typename LHS<1,0>::int_type>::type;
         short_int rhs_short = rhs_int | rhs_frac;
         short_int lhs_short = lhs_int | lhs_frac;
         short_int res_short = lhs_short * rhs_short;
-        if CONSTEXPR (LHS_FRAC_BITS <= 0 && RHS_FRAC_BITS <= 0)
-        {
-            res.num.table[0] = 0;
-            res.num.table[1] = res_short;
-        }
-        else if CONSTEXPR (LHS_FRAC_BITS <= 0 && RHS_FRAC_BITS > 0)
+        if CONSTEXPR (LHS_FRAC_BITS <= 0 && RHS_FRAC_BITS > 0)
         {
             res.num.table[0] = res_short << (64-RHS_FRAC_BITS);
-            res.num.table[1] = res_short >> (RHS_FRAC_BITS);
+            res.num.table[1] = res_short >> RHS_FRAC_BITS;
         }
         else if CONSTEXPR (LHS_FRAC_BITS > 0 && RHS_FRAC_BITS <= 0)
         {
             res.num.table[0] = res_short << (64-LHS_FRAC_BITS);
-            res.num.table[1] = res_short >> (LHS_FRAC_BITS);
+            res.num.table[1] = res_short >> LHS_FRAC_BITS;
         }
         else
         {
-            res.num.table[0] = res_short << (64-LHS_FRAC_BITS-RHS_FRAC_BITS);
-            res.num.table[1] = res_short >> (LHS_FRAC_BITS+RHS_FRAC_BITS);
+            constexpr int SHIFT_WIDTH = LHS_FRAC_BITS + RHS_FRAC_BITS;
+            res.num.table[0] = detail::BOUND_SHL(res_short, 64-SHIFT_WIDTH);
+            res.num.table[1] = detail::BOUND_SHR(res_short, SHIFT_WIDTH);
         }
     }
-    else if CONSTEXPR (LHS_INT_BITS + LHS_FRAC_BITS <= 64 && RHS_INT_BITS + RHS_FRAC_BITS <= 64)
+    /*
+     * Yet another specialized multiplication operator. This utilizes the
+     * specialized 64x64->128 bit multiplication that most computers can perform
+     * to get slightly high performance than the fully 128x128 bit 
+     * multiplication yields.
+     */
+    else if CONSTEXPR (LHS_TOTAL_BITS <= 64 && RHS_TOTAL_BITS <= 64)
     {
-        int64_t lhs_short = lhs.num.table[0] >> (64 - LHS_FRAC_BITS) | lhs.num.table[1] << LHS_FRAC_BITS;
-        int64_t rhs_short = rhs.num.table[0] >> (64 - RHS_FRAC_BITS) | rhs.num.table[1] << RHS_FRAC_BITS;
+        int64_t lhs_short = 
+            detail::BOUND_SHR(lhs.num.table[0], 64-LHS_FRAC_BITS) |
+            detail::BOUND_SHL(lhs.num.table[1], LHS_FRAC_BITS);
+        int64_t rhs_short =
+            detail::BOUND_SHR(rhs.num.table[0], 64-RHS_FRAC_BITS) |
+            detail::BOUND_SHL(rhs.num.table[1], RHS_FRAC_BITS);
         __int128_t res_long = detail::mul_64_to_128<int64_t>(lhs_short, rhs_short);
-        res_long <<= (64 - RHS_FRAC_BITS - LHS_FRAC_BITS);
+        if CONSTEXPR (LHS_FRAC_BITS <= 0 && RHS_FRAC_BITS > 0)
+        {
+            res_long <<= 64 - RHS_FRAC_BITS;
+        }
+        else if CONSTEXPR (LHS_FRAC_BITS > 0 && RHS_FRAC_BITS <= 0)
+        {
+            res_long <<= 64 - LHS_FRAC_BITS;
+        }
+        else
+        {
+            res_long <<= 64 - RHS_FRAC_BITS - LHS_FRAC_BITS;
+        }
         res.num.table[1] = res_long >> 64;
         res.num.table[0] = res_long;
     }
+    /*
+     * General base case multiplication. This is the slowest to execute, but it
+     * is able to perform all multiplications with all different word lengths.
+     */
     else
     {
-        __int128_t a = lhs.num.table[0];
-        __int128_t b = lhs.num.table[1];
-        __int128_t lhs_long = b << 64 | a;
-        __int128_t c = rhs.num.table[0];
-        __int128_t d = rhs.num.table[1];
-        __int128_t rhs_long = d << 64 | c;
+        using int_type = typename extend_int< 
+            typename narrow_int<typename LHS<1,0>::int_type>::type >::type;
+        int_type lhs_frac = lhs.num.table[0];
+        int_type lhs_int = lhs.num.table[1];
+        int_type lhs_long = lhs_int << 64 | lhs_frac;
+        int_type rhs_frac = rhs.num.table[0];
+        int_type rhs_int = rhs.num.table[1];
+        int_type rhs_long = rhs_int << 64 | rhs_frac;
         lhs_long >>= (64 - LHS_FRAC_BITS);
         rhs_long >>= (64 - RHS_FRAC_BITS);
-        __int128_t res_long = lhs_long * rhs_long;
+        int_type res_long = lhs_long * rhs_long;
         res_long <<= (64 - RHS_FRAC_BITS - LHS_FRAC_BITS);
         res.num.table[1] = res_long >> 64;
         res.num.table[0] = res_long;
@@ -841,6 +878,7 @@ operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     res.num.table[1] = long_res.table[2];
     res.num.table[0] = long_res.table[1];
     #ifdef _DEBUG_SHOW_OVERFLOW_INFO
+    {
         if ( res.test_overflow() )
         {
             std::stringstream ss{};
@@ -855,11 +893,13 @@ operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         {
             res.set_num_sign_extended();
         }
+    }
     #else
+    {
         res.set_num_sign_extended();
+    }
     #endif
 
-    //res.set_num_sign_extended();
     res.apply_bit_mask_frac();
     return res;
 }

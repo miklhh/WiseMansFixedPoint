@@ -868,3 +868,20 @@ TEST_CASE("Assignment where the wordlength changes.")
     }
 }
 
+
+TEST_CASE("Introductory unsigned numbers tests.")
+{
+    {
+        std::stringstream result{};
+        UnsignedFixedPoint<3,2> fix_a{ 7.25 };
+        UnsignedFixedPoint<3,1> fix_b{ 6.50 };
+        result << (fix_a + fix_b);
+        REQUIRE(result.str() == "13 + 3/4");
+    }
+    {
+        std::stringstream result{};
+        UnsignedFixedPoint<3,2> fix_a{ 8.25 };
+        result << fix_a;
+        REQUIRE(result.str() == "0 + 1/4");
+    }
+}

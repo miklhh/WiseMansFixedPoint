@@ -478,7 +478,7 @@ public:
 
 
     /*
-     * Conversion to and from floating point numbers.
+     * Conversion from floating point numbers.
      */
     explicit SignedFixedPoint(double a) { this->construct_from_double(a); }
 
@@ -662,13 +662,34 @@ private:
 template <int INT_BITS, int FRAC_BITS>
 class UnsignedFixedPoint : public BaseFixedPoint<INT_BITS,FRAC_BITS,uint128_t>
 {
+public:
+    UnsignedFixedPoint() = default;
+
+
     /*
-     * get_num_sign_extended() should always return a fully masked num in this
-     * class.
+     * Conversion from floating point numbers.
+     */
+    explicit UnsignedFixedPoint(double a) { this->construct_from_double(a); }
+
+
+    /*
+     * Returns the internal num representation sign extended. For unsigned
+     * numbers, this means zeroing all numbers greater than the most significant
+     * bit.
      */
     uint128_t get_num_sign_extended() const noexcept override
     {
         return this->num & detail::ONE_SHL_M1<int128_t>(64+INT_BITS);
+    }
+
+
+    /*
+     * Set the internal num representation sign extended, that is, num with all
+     * bits more significant than the sign bit set to the value of the sign bit.
+     */
+    void set_num_sign_extended() noexcept override
+    {
+        this->num &= detail::ONE_SHL_M1<int128_t>(64+INT_BITS);
     }
 };
 
@@ -1047,9 +1068,9 @@ SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> sat(
  * Print-out to C++ stream object on the form '<int> + <frac>/<2^<frac_bits>'.
  * Good for debuging'n'stuff.
  */
-template <int INT_BITS, int FRAC_BITS>
+template <int INT_BITS, int FRAC_BITS, template<int,int> class RHS>
 std::ostream &operator<<(
-        std::ostream &os, const SignedFixedPoint<INT_BITS, FRAC_BITS> &rhs)
+        std::ostream &os, const RHS<INT_BITS, FRAC_BITS> &rhs)
 {
     return os << rhs.to_string();
 }

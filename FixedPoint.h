@@ -232,6 +232,23 @@ static inline std::string to_string_hex(const ttmath::Int<_N> &a)
     std::reverse(result.begin(), result.end());
     return result.empty() ? std::string("0") : result;
 }
+template <unsigned long _N>
+static inline std::string to_string_hex(const ttmath::UInt<_N> &a)
+{
+    const char hex_alphabet[] = "0123456789ABCDEF";
+
+    ttmath::UInt<_N> n{ a };
+    std::stringstream ss{};
+    std::string result{};
+    while (n != 0)
+    {   
+        ss << hex_alphabet[(n%0x10).ToUInt()];
+        n >>= 4;
+    }   
+    result = ss.str();
+    std::reverse(result.begin(), result.end());
+    return result.empty() ? std::string("0") : result;
+}
 
 
 /*
@@ -371,6 +388,20 @@ public:
     }
 
 
+    /*
+     * Display the state of the fixed point number through the retuned string.
+     * The string contains formated output for debuging purposes.
+     */
+    std::string get_state() const noexcept
+    {
+        std::stringstream ss{};
+        std::string internal = to_string_hex(this->num);
+        internal = std::string(32-internal.length(), '0') + internal;
+        internal.insert(16, 1, '|');
+        return internal;
+    }
+
+
 protected:
     /*
      * Construct a fixed point number from a floating point number.
@@ -383,10 +414,9 @@ protected:
          * used to create a fast std::ceil(std::log2(std::abs(x)+1)) from
          * ilog2_fast(std::abs(x)+magic)+1.
          */
-        using narrow_int_type = typename narrow_int<_128_INT_TYPE>::type;
         constexpr double MAGIC_CEIL = 0.9999999999999999;
         long n = detail::ilog2_fast(std::abs(a) + MAGIC_CEIL) + 2;
-        narrow_int_type num = std::llround(a * double(1ull << (64-n)));
+        int64_t num = std::llround(a * double(1ull << (64-n)));
         this->num.table[0] = num << n;
         this->num.table[1] = num >> (64-n);
         this->round();
@@ -487,15 +517,15 @@ public:
      * Display the state of the fixed point number through the retuned string.
      * The string contains formated output for debuging purposes.
      */
-    std::string get_state() const noexcept
-    {
-        std::stringstream ss{};
-        std::string internal = to_string_hex(this->num);
-        internal = std::string(32-internal.length(), '0') + internal;
-        internal.insert(16, 1, '|');
-        return internal;
-    }
-
+//    std::string get_state() const noexcept
+//    {
+//        std::stringstream ss{};
+//        std::string internal = to_string_hex(this->num);
+//        internal = std::string(32-internal.length(), '0') + internal;
+//        internal.insert(16, 1, '|');
+//        return internal;
+//    }
+//
 
     /*
      * Assignment operator and assignment constructor for fixed point numbers.

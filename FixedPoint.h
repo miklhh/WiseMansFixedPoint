@@ -350,8 +350,66 @@ public:
     virtual void set_num_sign_extended() noexcept = 0;
 
 
+
     /*
-     * Specialized to_string function for fixed point numbers.
+     * Common masking and sign extension of the signed and unsigned fixed point
+     * assignment operator. When compiler flag _DEBUG_SHOW_OVERFLOW_INFO is
+     * enabled, the assignment operator will forward an overflow message string
+     * to _DEBUG_PRINT_FUNC(char *).
+     */
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    void assignment_common()
+    {
+        if CONSTEXPR (INT_BITS < RHS_INT_BITS)
+        {
+            #ifdef _DEBUG_SHOW_OVERFLOW_INFO
+            {
+                // Debug overflow checks
+                if (this->test_overflow())
+                {
+                    std::stringstream ss{};
+                    ss << "Overflow in assignment ";
+                    ss << "<" << RHS_INT_BITS << "," << RHS_FRAC_BITS << "> ";
+                    ss << "--> " << "<" << INT_BITS << "," << FRAC_BITS << "> ";
+                    ss << "of value: " << this->to_string() << " ";
+                    this->set_num_sign_extended();
+                    ss << "truncated to: " << this->to_string();
+                    _DEBUG_PRINT_FUNC(ss.str().c_str());
+                }
+                else
+                {
+                    // Sign extend (possibly truncate) MSB side.
+                    this->set_num_sign_extended();
+                }
+            }
+            #else
+            {
+                // Sign extend (possibly truncate) MSB side.
+                this->set_num_sign_extended();
+            }
+            #endif
+        }
+
+        // Truncate fractional bits if necessary.
+        if CONSTEXPR (FRAC_BITS < RHS_FRAC_BITS)
+        {
+            this->apply_bit_mask_frac();
+        }
+    }
+
+
+
+    /*
+     * Test for overflow in the underlying data type. The function is overloaded
+     * in
+     */
+    virtual bool test_overflow() const noexcept;
+
+
+    /*
+     * To string method for signed and unsigned fixed point numbers. The
+     * resulting string will be on the form: "a + b/2^FRAC_BITS" where a is the
+     * integer part and b is the fractional part.
      */
     std::string to_string() const noexcept
     {
@@ -515,21 +573,7 @@ public:
 
 
     /*
-     * Display the state of the fixed point number through the retuned string.
-     * The string contains formated output for debuging purposes.
-     */
-//    std::string get_state() const noexcept
-//    {
-//        std::stringstream ss{};
-//        std::string internal = to_string_hex(this->num);
-//        internal = std::string(32-internal.length(), '0') + internal;
-//        internal.insert(16, 1, '|');
-//        return internal;
-//    }
-//
-
-    /*
-     * Assignment operator and assignment constructor for fixed point numbers.
+     * Copy assignment operator for signed fixed point numbers.
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
     SignedFixedPoint<INT_BITS, FRAC_BITS> &
@@ -537,54 +581,19 @@ public:
         RHS_INT_BITS,RHS_FRAC_BITS, RHS_128_INT_TYPE > &rhs) noexcept
     {
         this->num = rhs.num;
-
-        if CONSTEXPR (INT_BITS < RHS_INT_BITS)
-        {
-            #ifdef _DEBUG_SHOW_OVERFLOW_INFO
-                /*
-                 * Extra debuging checks.
-                 */
-                if (this->test_overflow())
-                {
-                    std::stringstream ss{};
-                    ss << "Overflow in assignment ";
-                    ss << "<" << RHS_INT_BITS << "," << RHS_FRAC_BITS << "> ";
-                    ss << "--> " << "<" << INT_BITS << "," << FRAC_BITS << "> ";
-                    ss << "of value: " << this->to_string() << " ";
-                    this->set_num_sign_extended();
-                    ss << "truncated to: " << this->to_string();
-                    _DEBUG_PRINT_FUNC(ss.str().c_str());
-                }
-                else
-                {
-                    /*
-                     * Sign extend (possibly truncate) MSB side.
-                     */
-                    this->set_num_sign_extended();
-                }
-            #else
-                /*
-                 * Sign extend (possibly truncate) MSB side.
-                 */
-                this->set_num_sign_extended();
-            #endif
-        }
-
-        /*
-         * Truncate fractional bits if necessary.
-         */
-        if CONSTEXPR (FRAC_BITS < RHS_FRAC_BITS)
-        {
-            this->apply_bit_mask_frac();
-        }
-
+        this->template assignment_common<RHS_INT_BITS,RHS_FRAC_BITS>();
         return *this;
     }
 
+
+    /*
+     * Copy constructor for signed fixed point numbers.
+     */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
     SignedFixedPoint(const BaseFixedPoint<
             RHS_INT_BITS,RHS_FRAC_BITS,RHS_128_INT_TYPE > &rhs) noexcept
     {
+        // Reuse copy assignment.
         *this = rhs;
     }
 
@@ -603,13 +612,6 @@ public:
         this->set_num_sign_extended();
         return *this;
     }
-
-
-    /*
-     * Friend declaration for different template instansiations of one self.
-     */
-    template <int _INT_BITS, int _FRAC_BITS>
-    friend class SignedFixedPoint;
 
 
     /*
@@ -657,11 +659,12 @@ public:
         }
     }
 
-
     /*
-     * Test if overflow has occured before possible sign extension.
+     * Test if signed overflow has occured before possible sign extension. This
+     * is used when _DEBUG_SHOW_OVERFLOW_INFO is enabled and in the saturion
+     * function.
      */
-    bool test_overflow() const noexcept
+    bool test_overflow() const noexcept override
     {
         using detail::ONE_SHL_M1_INV;
         constexpr uint128_t MASK = ONE_SHL_M1_INV<uint128_t>(64+INT_BITS-1);
@@ -676,13 +679,9 @@ private:
     bool sign() const noexcept
     {
         if CONSTEXPR (INT_BITS <= 0)
-        {
             return this->num.table[0] & (1ull << (64+INT_BITS-1));
-        }
         else
-        {
             return this->num.table[1] & (1ull << (INT_BITS-1));
-        }
     }
 };
 
@@ -695,6 +694,32 @@ class UnsignedFixedPoint : public BaseFixedPoint<INT_BITS,FRAC_BITS,uint128_t>
 {
 public:
     UnsignedFixedPoint() = default;
+
+
+    /*
+     * Copy assignment operator for signed fixed point numbers.
+     */
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
+    UnsignedFixedPoint<INT_BITS, FRAC_BITS> &
+    operator=(const BaseFixedPoint<
+        RHS_INT_BITS,RHS_FRAC_BITS, RHS_128_INT_TYPE > &rhs) noexcept
+    {
+        this->num = rhs.num;
+        this->template assignment_common<RHS_INT_BITS,RHS_FRAC_BITS>();
+        return *this;
+    }
+
+
+    /*
+     * Copy constructor for signed fixed point numbers.
+     */
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
+    UnsignedFixedPoint(const BaseFixedPoint<
+            RHS_INT_BITS,RHS_FRAC_BITS,RHS_128_INT_TYPE > &rhs) noexcept
+    {
+        // Reuse copy assignment.
+        *this = rhs;
+    }
 
 
     /*
@@ -721,6 +746,19 @@ public:
     void set_num_sign_extended() noexcept override
     {
         this->num &= detail::ONE_SHL_M1<int128_t>(64+INT_BITS);
+    }
+
+
+    /*
+     * Test if unsigned overflow has occured before possible sign extension.
+     * This is used when _DEBUG_SHOW_OVERFLOW_INFO is enabled and in the
+     * saturion function.
+     */
+    bool test_overflow() const noexcept override
+    {
+        using detail::ONE_SHL_M1_INV;
+        constexpr uint128_t MASK = ONE_SHL_M1_INV<uint128_t>(64+INT_BITS);
+        return (this->num & MASK) != 0;
     }
 };
 

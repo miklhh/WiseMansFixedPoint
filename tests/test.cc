@@ -231,6 +231,13 @@ TEST_CASE("Assignment of FixedPoint that truncates.")
         result << fix_b;
         REQUIRE(result.str() == std::string("-1 + 0/1024"));
     }
+    {
+        std::stringstream result{};
+        FixedPoint<5,10> fix_a{ 15.0 };
+        FixedPoint<3,10> fix_b(fix_a);
+        result << fix_b;
+        REQUIRE(result.str() == std::string("-1 + 0/1024"));
+    }
 }
 
 
@@ -883,5 +890,13 @@ TEST_CASE("Introductory unsigned numbers tests.")
         UnsignedFixedPoint<3,2> fix_a{ 8.25 };
         result << fix_a;
         REQUIRE(result.str() == "0 + 1/4");
+    }
+    {
+        std::stringstream result{};
+        UnsignedFixedPoint<3,2> fix_a{ 7.25 };
+        UnsignedFixedPoint<10,10> fix_b{ 4.75 };
+        fix_b = fix_a + fix_b;
+        result << fix_b;
+        REQUIRE(result.str() == "12 + 0/1024");
     }
 }

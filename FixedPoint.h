@@ -26,10 +26,11 @@
 #include <cmath>
 #include <algorithm>
 #include <cstdint>
+#include <type_traits>
 
 
 /*
- * Enabling compiler flag _DEBUG_SHOW_OVERFLOW_INFO will help the user find 
+ * Enabling compiler flag _DEBUG_SHOW_OVERFLOW_INFO will help the user find
  * fixed point assignments that overflows. Overflow info will be printed through
  * the debug routine defined below.
  */
@@ -38,7 +39,7 @@
 
     #ifdef MX_API_VER
         /*
-         * Running in MATLAB/Mex environment. Use mexPrint for printing 
+         * Running in MATLAB/Mex environment. Use mexPrint for printing
          * overflows.
          */
         #include "mex.h"
@@ -81,7 +82,7 @@ using uint256_t = ttmath::UInt<4>;
 
 
 /*
- * Compile time template structures for retrieving the extended or narrowed 
+ * Compile time template structures for retrieving the extended or narrowed
  * integer type of an underlying signed and unsigned integer type. Extension of
  * 64-bit numbers result in the signed or unsigned __(u)int128_t.
  */
@@ -152,8 +153,8 @@ namespace detail
     }
 
     /*
-     * Constexpr function for generating a ttmath 128 bit data type with the 
-     * value ~((1 << N) - 1), where: 0 <= N < 128. N outside of that range 
+     * Constexpr function for generating a ttmath 128 bit data type with the
+     * value ~((1 << N) - 1), where: 0 <= N < 128. N outside of that range
      * causes undefined behaviour.
      */
     template<typename TTMATH_INT>
@@ -183,9 +184,9 @@ namespace detail
     }
 
     /*
-     * Constexpr bounded shift functions. Needed due to negative wordlengths 
-     * causing alot of left shift wider thatn 64 or smaller than zero. These 
-     * constexpr function will shift the (u)int64_t argument a, left/right, n 
+     * Constexpr bounded shift functions. Needed due to negative wordlengths
+     * causing alot of left shift wider thatn 64 or smaller than zero. These
+     * constexpr function will shift the (u)int64_t argument a, left/right, n
      * times when possible, otherwise return the propriate result.
      */
     template <typename T>
@@ -212,11 +213,11 @@ namespace detail
 
 
 /*
- * Simple TTMath to_string function that generates a hex string of the underlying 
+ * Simple TTMath to_string function that generates a hex string of the underlying
  * ttmaths 2's complement data.
  */
-template <unsigned long _N> 
-static inline std::string to_string_hex(const ttmath::Int<_N> &a) 
+template <unsigned long _N>
+static inline std::string to_string_hex(const ttmath::Int<_N> &a)
 {
     const char hex_alphabet[] = "0123456789ABCDEF";
 
@@ -224,10 +225,10 @@ static inline std::string to_string_hex(const ttmath::Int<_N> &a)
     std::stringstream ss{};
     std::string result{};
     while (n != 0)
-    {   
+    {
         ss << hex_alphabet[(n%0x10).ToUInt()];
         n >>= 4;
-    }   
+    }
     result = ss.str();
     std::reverse(result.begin(), result.end());
     return result.empty() ? std::string("0") : result;
@@ -241,10 +242,10 @@ static inline std::string to_string_hex(const ttmath::UInt<_N> &a)
     std::stringstream ss{};
     std::string result{};
     while (n != 0)
-    {   
+    {
         ss << hex_alphabet[(n%0x10).ToUInt()];
         n >>= 4;
-    }   
+    }
     result = ss.str();
     std::reverse(result.begin(), result.end());
     return result.empty() ? std::string("0") : result;
@@ -262,7 +263,7 @@ public:
     /*
      * The length of the integer part of the fixed point number should be less
      * than or equal to 64 bits due to the underlying 128 bit data type. For the
-     * fractional part the same condition holds, but one extra bit is required 
+     * fractional part the same condition holds, but one extra bit is required
      * to guaranteeing correct rounding when needed.
      */
     static_assert(INT_BITS <= 64,
@@ -274,7 +275,7 @@ public:
 
 
     /*
-     * Friend declaration of addition and subtraction arithmetic operators on 
+     * Friend declaration of addition and subtraction arithmetic operators on
      * fixed point numbers.
      */
     template<
@@ -283,7 +284,7 @@ public:
     LHS<std::max(LHS_INT_BITS,RHS_INT_BITS)+1,
         std::max(LHS_FRAC_BITS,RHS_FRAC_BITS) >
     friend operator+(
-        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
 
     template<
@@ -292,7 +293,7 @@ public:
     LHS<std::max(LHS_INT_BITS,RHS_INT_BITS)+1,
         std::max(LHS_FRAC_BITS,RHS_FRAC_BITS) >
     friend operator-(
-        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
 
     template<int _INT_BITS, int _FRAC_BITS, template<int,int> class RHS>
@@ -309,7 +310,7 @@ public:
         int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
     friend LHS<LHS_INT_BITS+RHS_INT_BITS,LHS_FRAC_BITS+RHS_FRAC_BITS>
     operator*(
-        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
 
     template<
@@ -317,7 +318,7 @@ public:
         int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
     friend LHS<LHS_INT_BITS,LHS_FRAC_BITS>
     operator/(
-        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+        const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
 
 
@@ -343,7 +344,7 @@ public:
      * Function for setting the underlying data type to its sign extended
      * representation. This could have performance benefits over using
      * 'this->num = this->get_num_sign_extended()', if INT_BITS > 0. Profiling
-     * the Cooridnate Descent project shows an approx. 20% performance increase 
+     * the Cooridnate Descent project shows an approx. 20% performance increase
      * using this optimization.
      */
     virtual void set_num_sign_extended() noexcept = 0;
@@ -377,7 +378,7 @@ public:
     explicit operator double() const
     {
         /*
-         * Truncate num to 64 bits, with as many fractional bits remaining as 
+         * Truncate num to 64 bits, with as many fractional bits remaining as
          * possible without truncating any integer bits.
          */
         using std::min; using std::max;
@@ -467,7 +468,7 @@ protected:
 
 
     /*
-     * Method for rounding the result of some operation to the closest fixed 
+     * Method for rounding the result of some operation to the closest fixed
      * point number in the current representation.
      */
     void round() noexcept
@@ -731,9 +732,16 @@ template<
     int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
     int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
 LHS<std::max(LHS_INT_BITS,RHS_INT_BITS)+1,std::max(LHS_FRAC_BITS,RHS_FRAC_BITS)>
-operator+(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+operator+(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
           const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
 {
+    // Disallow arithmetic between signed and unsigned numbers.
+    static_assert(
+        std::is_same<RHS_INT_TYPE, typename LHS<1,0>::int_type >::value,
+        "Arithmetic between signed and unsigned fixed point types disallowed. "
+        "Use explicit type conversion and convert LHS or RHS to a common type."
+    );
+
     constexpr int RES_INT_BITS = std::max(LHS_INT_BITS,RHS_INT_BITS)+1;
     constexpr int RES_FRAC_BITS = std::max(LHS_FRAC_BITS,RHS_FRAC_BITS);
     LHS<RES_INT_BITS,RES_FRAC_BITS> res{};
@@ -751,7 +759,7 @@ template<
     int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
     int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
 LHS<LHS_INT_BITS,LHS_FRAC_BITS> &
-operator+=(LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+operator+=(LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
            const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
 {
     // Sign extension and masking is performed in assigment operator.
@@ -766,15 +774,22 @@ template<
     int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
     int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
 LHS<std::max(LHS_INT_BITS,RHS_INT_BITS)+1,std::max(LHS_FRAC_BITS,RHS_FRAC_BITS)>
-operator-(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+operator-(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
           const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
 {
+    // Disallow arithmetic between signed and unsigned numbers.
+    static_assert(
+        std::is_same<RHS_INT_TYPE, typename LHS<1,0>::int_type >::value,
+        "Arithmetic between signed and unsigned fixed point types disallowed. "
+        "Use explicit type conversion and convert LHS or RHS to a common type."
+    );
+
     constexpr int RES_INT_BITS = std::max(LHS_INT_BITS,RHS_INT_BITS)+1;
     constexpr int RES_FRAC_BITS = std::max(LHS_FRAC_BITS,RHS_FRAC_BITS);
     LHS<RES_INT_BITS,RES_FRAC_BITS> res{};
 
     // No sign extension or masking needed due to correct word length. The
-    // following code seems to be the most consistent way of generating 
+    // following code seems to be the most consistent way of generating
     // subtraction with borrow (x86 instruction 'sbb') throughtout the tests.
     res.num.table[1] = lhs.num.table[1] - rhs.num.table[1];
     res.num.table[0] = lhs.num.table[0] - rhs.num.table[0];
@@ -786,7 +801,7 @@ template<
     int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
     int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
 LHS<LHS_INT_BITS,LHS_FRAC_BITS> &
-operator-=(LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+operator-=(LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
            const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
 {
     // Sign extension and masking is performed in assigment operator.
@@ -801,14 +816,21 @@ template<
     int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
     int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
 LHS<LHS_INT_BITS+RHS_INT_BITS,LHS_FRAC_BITS+RHS_FRAC_BITS>
-operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
           const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
 {
+    // Disallow arithmetic between signed and unsigned numbers.
+    static_assert(
+        std::is_same<RHS_INT_TYPE, typename LHS<1,0>::int_type >::value,
+        "Arithmetic between signed and unsigned fixed point types disallowed. "
+        "Use explicit type conversion and convert LHS or RHS to a common type."
+    );
+
     LHS<LHS_INT_BITS+RHS_INT_BITS, LHS_FRAC_BITS+RHS_FRAC_BITS> res{};
 
     /*
-     * Specialized multiplication operator for when the resulting word length 
-     * is smaller than or equal to 64 bits. This specialized version is faster 
+     * Specialized multiplication operator for when the resulting word length
+     * is smaller than or equal to 64 bits. This specialized version is faster
      * to execute since it does not need to perform the wide multiplication.
      */
     constexpr int LHS_TOTAL_BITS = LHS_INT_BITS+LHS_FRAC_BITS;
@@ -845,12 +867,12 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     /*
      * Yet another specialized multiplication operator. This utilizes the
      * specialized 64x64->128 bit multiplication that most computers can perform
-     * to get slightly high performance than the fully 128x128 bit 
+     * to get slightly high performance than the fully 128x128 bit
      * multiplication yields.
      */
     else if CONSTEXPR (LHS_TOTAL_BITS <= 64 && RHS_TOTAL_BITS <= 64)
     {
-        int64_t lhs_short = 
+        int64_t lhs_short =
             detail::BOUND_SHR(lhs.num.table[0], 64-LHS_FRAC_BITS) |
             detail::BOUND_SHL(lhs.num.table[1], LHS_FRAC_BITS);
         int64_t rhs_short =
@@ -878,7 +900,7 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
      */
     else
     {
-        using int_type = typename extend_int< 
+        using int_type = typename extend_int<
             typename narrow_int<typename LHS<1,0>::int_type>::type >::type;
         int_type lhs_frac = lhs.num.table[0];
         int_type lhs_int = lhs.num.table[1];
@@ -900,7 +922,7 @@ template<
     int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
     int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
 LHS<LHS_INT_BITS,LHS_FRAC_BITS> &
-operator*=(LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+operator*=(LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
            const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
 {
     // Sign extension and masking is performed in assigment operator.
@@ -915,9 +937,16 @@ template<
     int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
     int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
 LHS<LHS_INT_BITS,LHS_FRAC_BITS>
-operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
           const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
 {
+    // Disallow arithmetic between signed and unsigned numbers.
+    static_assert(
+        std::is_same<RHS_INT_TYPE, typename LHS<1,0>::int_type >::value,
+        "Arithmetic between signed and unsigned fixed point types disallowed. "
+        "Use explicit type conversion and convert LHS or RHS to a common type."
+    );
+
     // Sign extension and masking needed due to uncorrect result word length.
     using long_int = typename extend_int<typename LHS<1,0>::int_type>::type;
     LHS<LHS_INT_BITS, LHS_FRAC_BITS> res{};
@@ -959,7 +988,7 @@ template<
     int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
     int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
 LHS<LHS_INT_BITS,LHS_FRAC_BITS> &
-operator/=(LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs, 
+operator/=(LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
            const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
 {
     // Sign extension and masking is performed in assigment operator.

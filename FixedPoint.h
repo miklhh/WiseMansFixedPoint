@@ -66,7 +66,7 @@
 #ifdef __cpp_if_constexpr
     #define CONSTEXPR constexpr
 #else
-    #define CONSTEXPR /* no constexpr */
+    #define CONSTEXPR /* no if constexpr */
 #endif
 
 
@@ -697,7 +697,13 @@ public:
 
 
     /*
-     * Copy assignment operator for signed fixed point numbers.
+     * Conversion from floating point numbers.
+     */
+    explicit UnsignedFixedPoint(double a) { this->construct_from_double(a); }
+
+
+    /*
+     * Copy assignment operator for unsigned fixed point numbers.
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
     UnsignedFixedPoint<INT_BITS, FRAC_BITS> &
@@ -711,7 +717,7 @@ public:
 
 
     /*
-     * Copy constructor for signed fixed point numbers.
+     * Copy constructor for unsigned fixed point numbers.
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_128_INT_TYPE>
     UnsignedFixedPoint(const BaseFixedPoint<
@@ -723,15 +729,9 @@ public:
 
 
     /*
-     * Conversion from floating point numbers.
-     */
-    explicit UnsignedFixedPoint(double a) { this->construct_from_double(a); }
-
-
-    /*
      * Returns the internal num representation sign extended. For unsigned
-     * numbers, this means zeroing all numbers greater than the most significant
-     * bit.
+     * numbers this means returning num with all bits greater than the most
+     * significat bit zeroed.
      */
     uint128_t get_num_sign_extended() const noexcept override
     {
@@ -740,12 +740,19 @@ public:
 
 
     /*
-     * Set the internal num representation sign extended, that is, num with all
-     * bits more significant than the sign bit set to the value of the sign bit.
+     * Set the internal num representation sign extended. For unsigned numbers
+     * this means zeroing all bits greater than the most significant bit.
      */
     void set_num_sign_extended() noexcept override
     {
-        this->num &= detail::ONE_SHL_M1<int128_t>(64+INT_BITS);
+        if CONSTEXPR (INT_BITS <= 0)
+        {
+            this->num &= detail::ONE_SHL_M1<int128_t>(64+INT_BITS);
+        }
+        else
+        {
+            this->num.table[1] &= (1ull << INT_BITS) - 1;
+        }
     }
 
 

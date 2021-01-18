@@ -899,4 +899,11 @@ TEST_CASE("Introductory unsigned numbers tests.")
         result << fix_b;
         REQUIRE(result.str() == "12 + 0/1024");
     }
+
+    {
+        std::stringstream result{};
+        UnsignedFixedPoint<3,2> fix_a{ 11.125 };
+        result << fix_a;
+        REQUIRE(result.str() == "3 + 1/4");
+    }
 }

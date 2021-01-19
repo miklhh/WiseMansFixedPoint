@@ -181,9 +181,9 @@ TEST_CASE("Overflow tests")
         FixedPoint<5,5> fix_a{ 10.0 };
         FixedPoint<1,2> fix_b{ 0.25 };
 
-        // Result = 40, trucanted to 8.
+        // Result = 40. Division can't overflow, and result is ok.
         result << fix_a / fix_b;
-        REQUIRE( result.str() == std::string("8 + 0/32") );
+        REQUIRE( result.str() == std::string("40 + 0/8") );
     }
     {
         std::stringstream result{};
@@ -392,10 +392,10 @@ TEST_CASE("Fixed point division")
      */
     {
         std::stringstream result{};
-        FixedPoint<13,22> fix_a{ 7.60 };
-        FixedPoint<14,17> fix_b{ 3.40 };
+        FixedPoint<13,50> fix_a{ 7.60 };
+        FixedPoint<14,20> fix_b{ 3.40 };
         result << fix_a/fix_b;
-        REQUIRE(result.str() == std::string("2 + 986890/4194304"));
+        REQUIRE(result.str() == std::string("2 + 252645404/1073741824"));
     }
 
     /*
@@ -403,24 +403,24 @@ TEST_CASE("Fixed point division")
      */
     {
         std::stringstream result{};
-        FixedPoint<6,23> fix_a{ -7.60 };
-        FixedPoint<5,20> fix_b{ 3.40 };
+        FixedPoint<6,10> fix_a{ -7.60 };
+        FixedPoint<5,5> fix_b{ 3.40 };
         result << fix_a/fix_b;
-        REQUIRE(result.str() == std::string("-3 + 6414815/8388608"));
+        REQUIRE(result.str() == std::string("-3 + 24/32"));
     }
     {
         std::stringstream result{};
-        FixedPoint<6,23> fix_a{ 7.60 };
-        FixedPoint<5,20> fix_b{ -3.40 };
+        FixedPoint<6,10> fix_a{ 7.60 };
+        FixedPoint<5,8> fix_b{ -3.40 };
         result << fix_a/fix_b;
-        REQUIRE(result.str() == std::string("-3 + 6414815/8388608"));
+        REQUIRE(result.str() == std::string("-3 + 3/4"));
     }
     {
         std::stringstream result{};
-        FixedPoint<10,23> fix_a{ -7.60 };
-        FixedPoint<5,25> fix_b{ -3.40 };
+        FixedPoint<10,15> fix_a{ -7.60 };
+        FixedPoint<5,11> fix_b{ -3.40 };
         result << fix_a/fix_b;
-        REQUIRE(result.str() == std::string("2 + 1973790/8388608"));
+        REQUIRE(result.str() == std::string("2 + 3/16"));
     }
 }
 

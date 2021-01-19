@@ -316,7 +316,7 @@ public:
     template<
         int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
         int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
-    friend LHS<LHS_INT_BITS,LHS_FRAC_BITS>
+    friend LHS<LHS_INT_BITS+RHS_FRAC_BITS,LHS_FRAC_BITS-RHS_FRAC_BITS>
     operator/(
         const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs);
@@ -963,6 +963,7 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     return res;
 }
 
+
 template<
     int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
     int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
@@ -981,7 +982,7 @@ operator*=(LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
 template<
     int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,
     int RHS_INT_BITS, int RHS_FRAC_BITS, typename RHS_INT_TYPE >
-LHS<LHS_INT_BITS,LHS_FRAC_BITS>
+LHS<LHS_INT_BITS+RHS_FRAC_BITS,LHS_FRAC_BITS-RHS_FRAC_BITS>
 operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
           const BaseFixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_INT_TYPE> &rhs)
 {
@@ -992,42 +993,43 @@ operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         "Use explicit type conversion and convert LHS or RHS to a common type."
     );
 
-    // Sign extension and masking needed due to uncorrect result word length.
-    using long_int = typename extend_int<typename LHS<1,0>::int_type>::type;
-    LHS<LHS_INT_BITS, LHS_FRAC_BITS> res{};
-    long_int long_rhs = rhs.num;
-    long_int long_lhs{};
-    long_lhs.table[3] = lhs.num.table[1];
-    long_lhs.table[2] = lhs.num.table[0];
-    long_int long_res = long_lhs / long_rhs;
-    res.num.table[1] = long_res.table[2];
-    res.num.table[0] = long_res.table[1];
-    #ifdef _DEBUG_SHOW_OVERFLOW_INFO
-    {
-        if ( res.test_overflow() )
-        {
-            std::stringstream ss{};
-            ss << "Overflow in division ";
-            ss << "<" << LHS_INT_BITS << "," << LHS_FRAC_BITS << "> ";
-            ss << "of value: " << res.to_string() << " ";
-            res.set_num_sign_extended();
-            ss << "truncated to: " << res.to_string();
-            _DEBUG_PRINT_FUNC(ss.str().c_str());
-        }
-        else
-        {
-            res.set_num_sign_extended();
-        }
-    }
-    #else
-    {
-        res.set_num_sign_extended();
-    }
-    #endif
+    // Get the 128-bit underlying type.
+    using int_type = typename extend_int<
+        typename narrow_int<typename LHS<1,0>::int_type>::type >::type;
+    LHS<LHS_INT_BITS+RHS_FRAC_BITS,LHS_FRAC_BITS-RHS_FRAC_BITS> res{};
 
+    // Extract LHS num to 128-bit integer.
+    int_type lhs_frac = lhs.num.table[0];
+    int_type lhs_int = lhs.num.table[1];
+    int_type lhs_long = lhs_int << 64 | lhs_frac;
+    lhs_long <<= 64-LHS_INT_BITS;
+
+    // Extract RHS num to 128-bit integer.
+    int_type rhs_frac = rhs.num.table[0];
+    int_type rhs_int = rhs.num.table[1];
+    int_type rhs_long = rhs_int << 64 | rhs_frac;
+    rhs_long >>= 64-RHS_FRAC_BITS;
+
+    // Perform division and move result in place.
+    int_type res_long = lhs_long / rhs_long;
+    if CONSTEXPR ( 64-LHS_INT_BITS-RHS_FRAC_BITS > 0 )
+    {
+        res_long >>= 64-LHS_INT_BITS-RHS_FRAC_BITS;
+    }
+    else
+    {
+        res_long <<= 64-LHS_INT_BITS-RHS_FRAC_BITS;
+    }
+
+    // Back to ttmath integer.
+    res.num.table[1] = res_long >> 64;
+    res.num.table[0] = res_long;
+
+    // Truncate fractional side and return.
     res.apply_bit_mask_frac();
     return res;
 }
+
 
 template<
     int LHS_INT_BITS, int LHS_FRAC_BITS, template<int,int> class LHS,

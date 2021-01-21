@@ -970,7 +970,7 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
      * to get slightly high performance than the fully 128x128 bit
      * multiplication yields.
      */
-    if CONSTEXPR (LHS_TOTAL_BITS <= 64 && RHS_TOTAL_BITS <= 64)
+    else if CONSTEXPR (LHS_TOTAL_BITS <= 64 && RHS_TOTAL_BITS <= 64)
     {
         using short_int = 
             typename detail::narrow_int<typename LHS<1,0>::int_type>::type;

@@ -7,7 +7,7 @@
  * VHDL IEEE signed and unsigned data types as possible.
  *
  * For the penalty of some greater run-time, the user can enable overflow checks
- * by compiling the header with preprocessor macro '_DEBUG_SHOW_OVERFLOW_INFO'
+ * by compiling the header with pre-processor macro '_DEBUG_SHOW_OVERFLOW_INFO'
  * defined (commandline option '-D_DEBUG_SHOW_OVERFLOW_INFO' for GCC or CLANG)
  * which will display some over-/underflow information during code execution.
  *
@@ -18,8 +18,6 @@
 
 #ifndef _WISE_MANS_FIXED_POINT_H
 #define _WISE_MANS_FIXED_POINT_H
-
-#include "ttmath/ttmath.h"
 
 #include <string>
 #include <sstream>
@@ -70,34 +68,115 @@
 #endif
 
 
-/*
- * Wide integer types. The 128 bit integers are used as underlying data type for
- * fixed point numbers and the 256 bit integers are used in the multiplication
- * and division operators.
- */
-using int128_t = ttmath::Int<2>;
-using int256_t = ttmath::Int<4>;
-using uint128_t = ttmath::UInt<2>;
-using uint256_t = ttmath::UInt<4>;
-
-
-/*
- * Compile time template structures for retrieving the extended or narrowed
- * integer type of an underlying signed and unsigned integer type. Extension of
- * 64-bit numbers result in the signed or unsigned __(u)int128_t.
- */
-template<typename T> struct extend_int {};
-template<typename T> struct narrow_int {};
-template<> struct extend_int<int128_t> { using type = int256_t; };
-template<> struct extend_int<uint128_t> { using type = uint256_t; };
-template<> struct narrow_int<int128_t> { using type = int64_t; };
-template<> struct narrow_int<uint128_t> { using type = uint64_t; };
-template<> struct extend_int<int64_t> { using type = __int128_t; };
-template<> struct extend_int<uint64_t> { using type = __uint128_t; };
-
-
 namespace detail
 {
+    /*
+     * Underlying 128 bit data type for the fixed point numbers with associated
+     * needed operations for the fixed point operations.
+     */
+    struct fpint128_t
+    {
+        int64_t table[2];
+    };
+    struct ufpint128_t
+    {
+        uint64_t table[2];
+    };
+
+    template <typename FPINT1, typename FPINT2, 
+              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT2().table)>
+    bool operator==(const FPINT1 &lhs, const FPINT2 &rhs)
+    {
+        return uint64_t(lhs.table[0]) == uint64_t(rhs.table[0]) &&
+               uint64_t(lhs.table[1]) == uint64_t(rhs.table[1]);
+    }
+
+    template <typename FPINT, typename = decltype(FPINT().table)>
+    bool operator==(const FPINT &lhs, int rhs)
+    {
+        return (lhs.table[1] == 0 && lhs.table[0] == rhs);
+    }
+
+    template <typename FPINT, typename = decltype(FPINT().table)>
+    FPINT operator>>(const FPINT &lhs, int n)
+    {
+        FPINT res{};
+        res.table[0]  = uint64_t(lhs.table[1]) << (64-n);
+        res.table[0] |= uint64_t(lhs.table[0]) >> n;
+        res.table[1] >>= n;
+        return res;
+    }
+
+    template <typename FPINT1, typename FPINT2,
+              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT2().table)>
+    FPINT1 operator|(const FPINT1 &lhs, const FPINT2 &rhs)
+    {
+        FPINT1 res{};
+        res.table[0] = lhs.table[0] | rhs.table[0];
+        res.table[1] = lhs.table[1] | rhs.table[1];
+        return res;
+    }
+
+    template <typename FPINT1, typename FPINT2,
+              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT2().table)>
+    FPINT1 &operator|=(FPINT1 &lhs, const FPINT2 &rhs)
+    {
+        return lhs = lhs | rhs;
+    }
+
+    template <typename FPINT1, typename FPINT2,
+              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT2().table)>
+    FPINT1 operator&(const FPINT1 &lhs, const FPINT2 &rhs)
+    {
+        FPINT1 res{};
+        res.table[0] = lhs.table[0] & rhs.table[0];
+        res.table[1] = lhs.table[1] & rhs.table[1];
+        return res;
+    }
+
+    template <typename FPINT1, typename FPINT2,
+              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT2().table)>
+    FPINT1 &operator&=(FPINT1 &lhs, const FPINT2 &rhs)
+    {
+        return lhs = lhs & rhs;
+    }
+
+    template <typename FPINT1, typename FPINT2,
+              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT2().table)>
+    bool operator<(const FPINT1 &lhs, const FPINT2 &rhs)
+    {
+        return lhs.table[1] < rhs.table[1] ? true : lhs.table[0] < rhs.table[0];
+    }
+
+    template <typename FPINT1, typename FPINT2,
+              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT2().table)>
+    FPINT1 operator+(const FPINT1 &lhs, const FPINT2 &rhs)
+    {
+        // The following code seems to be the most consistent way of generating
+        // addition with carry (x86 instruction 'adc') throughout the tests.
+        FPINT1 res{};
+        res.table[1] = lhs.table[1] + rhs.table[1];
+        res.table[0] = uint64_t(lhs.table[0]) + uint64_t(rhs.table[0]);
+        res.table[1] += uint64_t(res.table[0]) < uint64_t(lhs.table[0]);
+        return res;
+    }
+
+    template <typename FPINT1, typename FPINT2,
+              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT2().table)>
+    FPINT1 &operator+=(FPINT1 &lhs, const FPINT2 &rhs)
+    {
+        return lhs = lhs + rhs;
+    }
+
+
     /*
      * Fast integer log2(double) function.
      */
@@ -108,15 +187,16 @@ namespace detail
         return result-1;
     }
 
+
     /*
-     * Constexpr function for generating a ttmath 128 bit data type with the
+     * Constexpr function for generating a fpint 128 bit data type with the
      * value 1 << N, where: 0 <= N < 128. N outside of that range is undefined
      * behaviour.
      */
-    template<typename TTMATH_INT>
-    constexpr TTMATH_INT ONE_SHL(int N)
+    template<typename INT>
+    constexpr INT ONE_SHL(int N)
     {
-        TTMATH_INT res{};
+        INT res{};
         if (N >= 64)
         {
             res.table[0] = 0ull;
@@ -127,18 +207,19 @@ namespace detail
             res.table[0] = 1ull << N;
             res.table[1] = 0ull;
         }
-        return ttmath::UInt<2>(res);
+        return res;
     }
 
+
     /*
-     * Constexpr function for generating a ttmath 128 bit data type with the
+     * Constexpr function for generating a fpint 128 bit data type with the
      * value (1 << N) - 1, where: 0 <= N < 128. N outside of that range is
      * undefined behaviour.
      */
-    template<typename TTMATH_INT>
-    constexpr TTMATH_INT ONE_SHL_M1(int N)
+    template<typename INT>
+    constexpr INT ONE_SHL_M1(int N)
     {
-        TTMATH_INT res{};
+        INT res{};
         if (N >= 64)
         {
             res.table[0] = ~0ull;
@@ -152,15 +233,16 @@ namespace detail
         return res;
     }
 
+
     /*
-     * Constexpr function for generating a ttmath 128 bit data type with the
-     * value ~((1 << N) - 1), where: 0 <= N < 128. N outside of that range
-     * causes undefined behaviour.
+     * Constexpr function for generating a fpint 128 data type with the value 
+     * ~((1 << N) - 1), where: 0 <= N < 128. N outside of that range causes 
+     * undefined behaviour.
      */
-    template<typename TTMATH_INT>
-    constexpr TTMATH_INT ONE_SHL_M1_INV(int N)
+    template<typename INT>
+    constexpr INT ONE_SHL_M1_INV(int N)
     {
-        TTMATH_INT res{};
+        INT res{};
         if (N >= 64)
         {
             res.table[0] = 0ull;
@@ -175,22 +257,13 @@ namespace detail
     }
 
     /*
-     * Multiplication of type 64bit x 64bit -> 128 bit.
-     */
-    template <typename T>
-    static inline typename extend_int<T>::type mul_64_to_128(T a, T b)
-    {
-        return static_cast<typename extend_int<T>::type>(a) * b;
-    }
-
-    /*
      * Constexpr bounded shift functions. Needed due to negative wordlengths
      * causing alot of left shift wider thatn 64 or smaller than zero. These
      * constexpr function will shift the (u)int64_t argument a, left/right, n
      * times when possible, otherwise return the propriate result.
      */
-    template <typename T>
-    constexpr T BOUND_SHL(T a, int n)
+    template <typename INT>
+    constexpr INT BOUND_SHL(INT a, int n)
     {
         if (n >= 64)
             return 0;
@@ -199,8 +272,9 @@ namespace detail
         else
             return a << n;
     }
-    template <typename T>
-    constexpr T BOUND_SHR(T a, int n)
+
+    template <typename INT>
+    constexpr INT BOUND_SHR(INT a, int n)
     {
         if (n >= 64)
             return 0;
@@ -209,46 +283,29 @@ namespace detail
         else
             return a >> n;
     }
-}
 
 
-/*
- * Simple TTMath to_string function that generates a hex string of the underlying
- * ttmaths 2's complement data.
- */
-template <unsigned long _N>
-static inline std::string to_string_hex(const ttmath::Int<_N> &a)
-{
-    const char hex_alphabet[] = "0123456789ABCDEF";
+    /*
+     * Compile time template structures for retrieving the extended or narrowed
+     * integer type of an underlying signed and unsigned integer type. Extension
+     * of 64-bit numbers result in the signed or unsigned __(u)int128_t.
+     */
+    template<typename T> struct extend_int {};
+    template<typename T> struct narrow_int {};
+    template<> struct extend_int<int64_t> { using type = __int128_t; };
+    template<> struct extend_int<uint64_t> { using type = __uint128_t; };
+    template<> struct narrow_int<detail::ufpint128_t>{ using type = uint64_t; };
+    template<> struct narrow_int<detail::fpint128_t>{ using type = int64_t; };
 
-    ttmath::UInt<_N> n{ a };
-    std::stringstream ss{};
-    std::string result{};
-    while (n != 0)
+
+    /*
+     * Multiplication of type 64bit x 64bit -> 128 bit.
+     */
+    template <typename T>
+    static inline typename extend_int<T>::type mul_64_to_128(T a, T b)
     {
-        ss << hex_alphabet[(n%0x10).ToUInt()];
-        n >>= 4;
+        return static_cast<typename extend_int<T>::type>(a) * b;
     }
-    result = ss.str();
-    std::reverse(result.begin(), result.end());
-    return result.empty() ? std::string("0") : result;
-}
-template <unsigned long _N>
-static inline std::string to_string_hex(const ttmath::UInt<_N> &a)
-{
-    const char hex_alphabet[] = "0123456789ABCDEF";
-
-    ttmath::UInt<_N> n{ a };
-    std::stringstream ss{};
-    std::string result{};
-    while (n != 0)
-    {
-        ss << hex_alphabet[(n%0x10).ToUInt()];
-        n >>= 4;
-    }
-    result = ss.str();
-    std::reverse(result.begin(), result.end());
-    return result.empty() ? std::string("0") : result;
 }
 
 
@@ -350,7 +407,6 @@ public:
     virtual void set_num_sign_extended() noexcept = 0;
 
 
-
     /*
      * Common masking and sign extension of the signed and unsigned fixed point
      * assignment operator. When compiler flag _DEBUG_SHOW_OVERFLOW_INFO is
@@ -398,7 +454,6 @@ public:
     }
 
 
-
     /*
      * Test for overflow in the underlying data type. The function is overloaded
      * in
@@ -414,8 +469,8 @@ public:
     std::string to_string() const noexcept
     {
         // Extract integer part.
-        using narrow_int_type = typename narrow_int<int_type>::type;
-        narrow_int_type integer = narrow_int_type((this->num >> 64).ToUInt());
+        using narrow_int_type = typename detail::narrow_int<int_type>::type;
+        narrow_int_type integer = this->num.table[1];
         std::string integer_str( std::to_string(integer) );
 
         // Append fractional part if it exists.
@@ -435,14 +490,12 @@ public:
      */
     explicit operator double() const
     {
-        /*
-         * Truncate num to 64 bits, with as many fractional bits remaining as
-         * possible without truncating any integer bits.
-         */
+        // Truncate num to 64 bits, with as many fractional bits remaining as
+        // possible without truncating any integer bits.
         using std::min; using std::max;
-        using narrow_int_type = typename narrow_int<int_type>::type;
+        using narrow_int_type = typename detail::narrow_int<int_type>::type;
         constexpr int SHIFT_WIDTH = max( min(64, 64-FRAC_BITS), INT_BITS );
-        narrow_int_type num_small = (this->num >> SHIFT_WIDTH).ToUInt();
+        narrow_int_type num_small = (this->num >> SHIFT_WIDTH).table[0];
         return double(num_small) / double(1ull << (64-SHIFT_WIDTH));
     }
 
@@ -453,11 +506,9 @@ public:
      */
     std::string get_state() const noexcept
     {
-        std::stringstream ss{};
-        std::string internal = to_string_hex(this->num);
-        internal = std::string(32-internal.length(), '0') + internal;
-        internal.insert(16, 1, '|');
-        return internal;
+        char res[40];
+        sprintf(res, "%016lx.%016lx", this->num.table[1], this->num.table[0]);
+        return std::string(res);
     }
 
 
@@ -467,12 +518,10 @@ protected:
      */
     void construct_from_double(double a)
     {
-        /*
-         * NOTE: This magic number is (exactly) the greatest IEEE 754
-         * Double-Precision Floating-Point number smaller than 1.0. It is
-         * used to create a fast std::ceil(std::log2(std::abs(x)+1)) from
-         * ilog2_fast(std::abs(x)+magic)+1.
-         */
+        // NOTE: This magic number is (exactly) the greatest IEEE 754
+        // Double-Precision Floating-Point number smaller than 1.0. It is
+        // used to create a fast std::ceil(std::log2(std::abs(x)+1)) from
+        // ilog2_fast(std::abs(x)+magic)+1.
         constexpr double MAGIC_CEIL = 0.9999999999999999;
         long n = detail::ilog2_fast(std::abs(a) + MAGIC_CEIL) + 2;
         int64_t num = std::llround(a * double(1ull << (64-n)));
@@ -491,9 +540,7 @@ protected:
     std::string get_frac_quotient() const noexcept
     {
         using std::to_string;
-        int_type num_masked = num;
-        num_masked.table[1] = 0;
-        uint64_t numerator{ (num_masked >> (64-FRAC_BITS)).ToUInt() };
+        uint64_t numerator{ uint64_t(num.table[0]) >> (64-FRAC_BITS) };
         if CONSTEXPR (FRAC_BITS > 0)
         {
             uint64_t denominator{ 1ull << FRAC_BITS };
@@ -560,7 +607,8 @@ protected:
  * Signed fixed point data type.
  */
 template <int INT_BITS, int FRAC_BITS>
-class SignedFixedPoint : public BaseFixedPoint<INT_BITS,FRAC_BITS,int128_t>
+class SignedFixedPoint : 
+    public BaseFixedPoint<INT_BITS,FRAC_BITS,detail::fpint128_t>
 {
 public:
     SignedFixedPoint() = default;
@@ -628,12 +676,13 @@ public:
      * all bits more significant than the sign bit set to the value of the sign
      * bit.
      */
-    int128_t get_num_sign_extended() const noexcept override
+    detail::fpint128_t get_num_sign_extended() const noexcept override
     {
-        if ( sign() )
-            return this->num | detail::ONE_SHL_M1_INV<int128_t>(64+INT_BITS);
+        using detail::fpint128_t;
+        if (sign())
+            return this->num | detail::ONE_SHL_M1_INV<fpint128_t>(64+INT_BITS);
         else
-            return this->num & detail::ONE_SHL_M1<int128_t>(64+INT_BITS);
+            return this->num & detail::ONE_SHL_M1<fpint128_t>(64+INT_BITS);
     }
 
 
@@ -645,10 +694,11 @@ public:
     {
         if CONSTEXPR (INT_BITS <= 0)
         {
+            using detail::fpint128_t;
             if ( sign() )
-                this->num |= detail::ONE_SHL_M1_INV<int128_t>(64+INT_BITS);
+                this->num |= detail::ONE_SHL_M1_INV<fpint128_t>(64+INT_BITS);
             else
-                this->num &= detail::ONE_SHL_M1<int128_t>(64+INT_BITS);
+                this->num &= detail::ONE_SHL_M1<fpint128_t>(64+INT_BITS);
         }
         else
         {
@@ -666,8 +716,8 @@ public:
      */
     bool test_overflow() const noexcept override
     {
-        using detail::ONE_SHL_M1_INV;
-        constexpr uint128_t MASK = ONE_SHL_M1_INV<uint128_t>(64+INT_BITS-1);
+        using detail::ONE_SHL_M1_INV, detail::ufpint128_t;
+        constexpr ufpint128_t MASK = ONE_SHL_M1_INV<ufpint128_t>(64+INT_BITS-1);
         return !( (this->num & MASK) == 0 || (this->num & MASK) == MASK );
     }
 
@@ -690,7 +740,8 @@ private:
  * Unsigned fixed point data type.
  */
 template <int INT_BITS, int FRAC_BITS>
-class UnsignedFixedPoint : public BaseFixedPoint<INT_BITS,FRAC_BITS,uint128_t>
+class UnsignedFixedPoint : 
+    public BaseFixedPoint<INT_BITS,FRAC_BITS,detail::ufpint128_t>
 {
 public:
     UnsignedFixedPoint() = default;
@@ -733,9 +784,9 @@ public:
      * numbers this means returning num with all bits greater than the most
      * significat bit zeroed.
      */
-    uint128_t get_num_sign_extended() const noexcept override
+    detail::ufpint128_t get_num_sign_extended() const noexcept override
     {
-        return this->num & detail::ONE_SHL_M1<int128_t>(64+INT_BITS);
+        return this->num & detail::ONE_SHL_M1<detail::ufpint128_t>(64+INT_BITS);
     }
 
 
@@ -747,7 +798,7 @@ public:
     {
         if CONSTEXPR (INT_BITS <= 0)
         {
-            this->num &= detail::ONE_SHL_M1<int128_t>(64+INT_BITS);
+            this->num &= detail::ONE_SHL_M1<detail::fpint128_t>(64+INT_BITS);
         }
         else
         {
@@ -764,8 +815,10 @@ public:
     bool test_overflow() const noexcept override
     {
         using detail::ONE_SHL_M1_INV;
-        constexpr uint128_t MASK = ONE_SHL_M1_INV<uint128_t>(64+INT_BITS);
-        return (this->num & MASK) != 0;
+        using detail::ufpint128_t;
+        constexpr ufpint128_t MASK = ONE_SHL_M1_INV<ufpint128_t>(64+INT_BITS);
+        return !( (this->num.table[0] & MASK.table[0]) == 0 && 
+                  (this->num.table[1] & MASK.table[1]) == 0 );
     }
 };
 
@@ -795,8 +848,8 @@ operator+(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     // following code seems to be the most consistent way of generating addition
     // with carry (x86 instruction 'adc') throughout the tests.
     res.num.table[1] = lhs.num.table[1] + rhs.num.table[1];
-    res.num.table[0] = lhs.num.table[0] + rhs.num.table[0];
-    res.num.table[1] += res.num.table[0] < lhs.num.table[0];
+    res.num.table[0] = uint64_t(lhs.num.table[0]) + uint64_t(rhs.num.table[0]);
+    res.num.table[1] += uint64_t(res.num.table[0]) < uint64_t(lhs.num.table[0]);
     return res;
 }
 
@@ -837,8 +890,8 @@ operator-(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     // following code seems to be the most consistent way of generating
     // subtraction with borrow (x86 instruction 'sbb') throughtout the tests.
     res.num.table[1] = lhs.num.table[1] - rhs.num.table[1];
-    res.num.table[0] = lhs.num.table[0] - rhs.num.table[0];
-    res.num.table[1] -= res.num.table[0] > lhs.num.table[0];
+    res.num.table[0] = uint64_t(lhs.num.table[0]) - uint64_t(rhs.num.table[0]);
+    res.num.table[1] -= uint64_t(res.num.table[0]) > uint64_t(lhs.num.table[0]);
     return res;
 }
 
@@ -882,13 +935,15 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     constexpr int RHS_TOTAL_BITS = RHS_INT_BITS+RHS_FRAC_BITS;
     if CONSTEXPR (LHS_TOTAL_BITS+RHS_TOTAL_BITS <= 64)
     {
+        using detail::BOUND_SHL, detail::BOUND_SHR;
         uint64_t lhs_int, lhs_frac, rhs_int, rhs_frac;
-        lhs_int = detail::BOUND_SHL(lhs.num.table[1], LHS_FRAC_BITS);
-        rhs_int = detail::BOUND_SHL(rhs.num.table[1], RHS_FRAC_BITS);
-        lhs_frac = detail::BOUND_SHR(lhs.num.table[0], 64-LHS_FRAC_BITS);
-        rhs_frac = detail::BOUND_SHR(rhs.num.table[0], 64-RHS_FRAC_BITS);
+        lhs_int = BOUND_SHL((uint64_t)lhs.num.table[1], LHS_FRAC_BITS);
+        rhs_int = BOUND_SHL((uint64_t)rhs.num.table[1], RHS_FRAC_BITS);
+        lhs_frac = BOUND_SHR((uint64_t)lhs.num.table[0], 64-LHS_FRAC_BITS);
+        rhs_frac = BOUND_SHR((uint64_t)rhs.num.table[0], 64-RHS_FRAC_BITS);
 
-        using short_int = typename narrow_int<typename LHS<1,0>::int_type>::type;
+        using short_int = 
+            typename detail::narrow_int<typename LHS<1,0>::int_type>::type;
         short_int rhs_short = rhs_int | rhs_frac;
         short_int lhs_short = lhs_int | lhs_frac;
         short_int res_short = lhs_short * rhs_short;
@@ -915,16 +970,23 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
      * to get slightly high performance than the fully 128x128 bit
      * multiplication yields.
      */
-    else if CONSTEXPR (LHS_TOTAL_BITS <= 64 && RHS_TOTAL_BITS <= 64)
+    if CONSTEXPR (LHS_TOTAL_BITS <= 64 && RHS_TOTAL_BITS <= 64)
     {
-        int64_t lhs_short =
-            detail::BOUND_SHR(lhs.num.table[0], 64-LHS_FRAC_BITS) |
-            detail::BOUND_SHL(lhs.num.table[1], LHS_FRAC_BITS);
-        int64_t rhs_short =
-            detail::BOUND_SHR(rhs.num.table[0], 64-RHS_FRAC_BITS) |
-            detail::BOUND_SHL(rhs.num.table[1], RHS_FRAC_BITS);
-        __int128_t res_long = detail::mul_64_to_128<int64_t>(lhs_short, rhs_short);
-        if CONSTEXPR (LHS_FRAC_BITS <= 0 && RHS_FRAC_BITS > 0)
+        using short_int = 
+            typename detail::narrow_int<typename LHS<1,0>::int_type>::type;
+        using long_int = typename detail::extend_int<short_int>::type;
+        short_int lhs_short =
+            detail::BOUND_SHR((uint64_t)lhs.num.table[0], 64-LHS_FRAC_BITS) |
+            detail::BOUND_SHL((uint64_t)lhs.num.table[1], LHS_FRAC_BITS);
+        short_int rhs_short =
+            detail::BOUND_SHR((uint64_t)rhs.num.table[0], 64-RHS_FRAC_BITS) |
+            detail::BOUND_SHL((uint64_t)rhs.num.table[1], RHS_FRAC_BITS);
+        long_int res_long = detail::mul_64_to_128<short_int>(lhs_short, rhs_short);
+        if CONSTEXPR (LHS_FRAC_BITS <= 0 && RHS_FRAC_BITS <= 0)
+        {
+            res_long <<= 64;
+        }
+        else if CONSTEXPR (LHS_FRAC_BITS <= 0 && RHS_FRAC_BITS > 0)
         {
             res_long <<= 64 - RHS_FRAC_BITS;
         }
@@ -945,14 +1007,13 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
      */
     else
     {
-        using int_type = typename extend_int<
-            typename narrow_int<typename LHS<1,0>::int_type>::type >::type;
-        int_type lhs_frac = lhs.num.table[0];
+        using int_type = typename detail::extend_int<
+            typename detail::narrow_int<typename LHS<1,0>::int_type>::type >::type;
         int_type lhs_int = lhs.num.table[1];
-        int_type lhs_long = lhs_int << 64 | lhs_frac;
-        int_type rhs_frac = rhs.num.table[0];
+        int_type lhs_long = lhs_int << 64 | uint64_t(lhs.num.table[0]);
         int_type rhs_int = rhs.num.table[1];
-        int_type rhs_long = rhs_int << 64 | rhs_frac;
+        int_type rhs_long = rhs_int << 64 | uint64_t(rhs.num.table[0]);
+
         lhs_long >>= (64 - LHS_FRAC_BITS);
         rhs_long >>= (64 - RHS_FRAC_BITS);
         int_type res_long = lhs_long * rhs_long;
@@ -994,19 +1055,19 @@ operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     );
 
     // Get the 128-bit underlying type.
-    using int_type = typename extend_int<
-        typename narrow_int<typename LHS<1,0>::int_type>::type >::type;
+    using int_type = typename detail::extend_int<
+        typename detail::narrow_int<typename LHS<1,0>::int_type>::type >::type;
     LHS<LHS_INT_BITS+RHS_FRAC_BITS,LHS_FRAC_BITS-RHS_FRAC_BITS> res{};
 
     // Extract LHS num to 128-bit integer.
-    int_type lhs_frac = lhs.num.table[0];
-    int_type lhs_int = lhs.num.table[1];
+    int_type lhs_frac = uint64_t(lhs.num.table[0]); // TODO:
+    int_type lhs_int = uint64_t(lhs.num.table[1]);  // TODO:
     int_type lhs_long = lhs_int << 64 | lhs_frac;
     lhs_long <<= 64-LHS_INT_BITS;
 
     // Extract RHS num to 128-bit integer.
-    int_type rhs_frac = rhs.num.table[0];
-    int_type rhs_int = rhs.num.table[1];
+    int_type rhs_frac = uint64_t(rhs.num.table[0]); // TODO:
+    int_type rhs_int = uint64_t(rhs.num.table[1]);  // TODO:
     int_type rhs_long = rhs_int << 64 | rhs_frac;
     rhs_long >>= 64-RHS_FRAC_BITS;
 
@@ -1021,7 +1082,7 @@ operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         res_long <<= 64-LHS_INT_BITS-RHS_FRAC_BITS;
     }
 
-    // Back to ttmath integer.
+    // Back to fpint 128 integer.
     res.num.table[1] = res_long >> 64;
     res.num.table[0] = res_long;
 
@@ -1114,9 +1175,12 @@ template<int INT_BITS, int FRAC_BITS, template<int,int> class RHS>
 RHS<INT_BITS,FRAC_BITS> operator-(const RHS<INT_BITS,FRAC_BITS> &rhs)
 {
     RHS<INT_BITS,FRAC_BITS> res{};
-    res.num = -rhs.num;
-    res.set_num_sign_extended();
+    res.num.table[1] = ~rhs.num.table[1];
+    res.num.table[0] = ~rhs.num.table[0];
+    res.num.table[0] += 1;
+    res.num.table[1] += res.num.table[0] == 0;
     res.apply_bit_mask_frac();
+    res.set_num_sign_extended();
     return res;
 }
 
@@ -1141,33 +1205,33 @@ RHS<LHS_INT_BITS,LHS_FRAC_BITS> rnd(const RHS<RHS_INT_BITS, RHS_FRAC_BITS> &rhs)
 /*
  * Saturation for signed fixed point numbers.
  */
-template <int LHS_INT_BITS,int LHS_FRAC_BITS,int RHS_INT_BITS,int RHS_FRAC_BITS>
-SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> sat(
-        const SignedFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs)
-{
-    SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> res{};
-    res.num = rhs.get_num_sign_extended();
-    if (res.test_overflow())
-    {
-        if ( res.num < 0 )
-        {
-            // Min value.
-            res.num = ~((int128_t(1) << (64+LHS_INT_BITS-1)) - 1);
-        }
-        else
-        {
-            // Max value.
-            res.num = (int128_t(1) << (64+LHS_INT_BITS-1)) - 1;
-        }
-        res.apply_bit_mask_frac();
-        return res;
-    }
-    else
-    {
-        res.apply_bit_mask_frac();
-        return res;
-    }
-}
+//template <int LHS_INT_BITS,int LHS_FRAC_BITS,int RHS_INT_BITS,int RHS_FRAC_BITS>
+//SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> sat(
+//        const SignedFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs)
+//{
+//    SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> res{};
+//    res.num = rhs.get_num_sign_extended();
+//    if (res.test_overflow())
+//    {
+//        if ( res.num < 0 )
+//        {
+//            // Min value.
+//            res.num = ~((int128_t(1) << (64+LHS_INT_BITS-1)) - 1);
+//        }
+//        else
+//        {
+//            // Max value.
+//            res.num = (int128_t(1) << (64+LHS_INT_BITS-1)) - 1;
+//        }
+//        res.apply_bit_mask_frac();
+//        return res;
+//    }
+//    else
+//    {
+//        res.apply_bit_mask_frac();
+//        return res;
+//    }
+//}
 
 
 /*

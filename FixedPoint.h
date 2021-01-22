@@ -83,21 +83,6 @@ namespace detail
         uint64_t table[2];
     };
 
-    template <typename FPINT1, typename FPINT2, 
-              typename = decltype(FPINT1().table), 
-              typename = decltype(FPINT2().table)>
-    bool operator==(const FPINT1 &lhs, const FPINT2 &rhs)
-    {
-        return uint64_t(lhs.table[0]) == uint64_t(rhs.table[0]) &&
-               uint64_t(lhs.table[1]) == uint64_t(rhs.table[1]);
-    }
-
-    template <typename FPINT, typename = decltype(FPINT().table)>
-    bool operator==(const FPINT &lhs, int rhs)
-    {
-        return (lhs.table[1] == 0 && lhs.table[0] == rhs);
-    }
-
     template <typename FPINT, typename = decltype(FPINT().table)>
     FPINT operator>>(const FPINT &lhs, int n)
     {
@@ -105,6 +90,16 @@ namespace detail
         res.table[0]  = uint64_t(lhs.table[1]) << (64-n);
         res.table[0] |= uint64_t(lhs.table[0]) >> n;
         res.table[1] >>= n;
+        return res;
+    }
+
+    template <typename FPINT, typename = decltype(FPINT().table)>
+    FPINT operator<<(const FPINT &lhs, int n)
+    {
+        FPINT res{};
+        res.table[1]  = uint64_t(lhs.table[0]) >> (64-n);
+        res.table[1] |= uint64_t(lhs.table[1]) << n;
+        res.table[0] <<= n;
         return res;
     }
 
@@ -146,12 +141,51 @@ namespace detail
         return lhs = lhs & rhs;
     }
 
+    template <typename FPINT1, typename FPINT2, 
+              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT2().table)>
+    bool operator==(const FPINT1 &lhs, const FPINT2 &rhs)
+    {
+        return uint64_t(lhs.table[0]) == uint64_t(rhs.table[0]) &&
+               uint64_t(lhs.table[1]) == uint64_t(rhs.table[1]);
+    }
+
+    template <typename FPINT, typename = decltype(FPINT().table)>
+    bool operator==(const FPINT &lhs, int rhs)
+    {
+        return (lhs.table[1] == 0 && lhs.table[0] == rhs);
+    }
+
     template <typename FPINT1, typename FPINT2,
               typename = decltype(FPINT1().table), 
               typename = decltype(FPINT2().table)>
     bool operator<(const FPINT1 &lhs, const FPINT2 &rhs)
     {
         return lhs.table[1] < rhs.table[1] ? true : lhs.table[0] < rhs.table[0];
+    }
+
+    template <typename FPINT1, typename FPINT2,
+              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT2().table)>
+    bool operator<=(const FPINT1 &lhs, const FPINT2 &rhs)
+    {
+        return (lhs < rhs) || (lhs == rhs);
+    }
+
+    template <typename FPINT1, typename FPINT2,
+              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT2().table)>
+    bool operator>(const FPINT1 &lhs, const FPINT2 &rhs)
+    {
+        return !(lhs <= rhs);
+    }
+
+    template <typename FPINT1, typename FPINT2,
+              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT2().table)>
+    bool operator>=(const FPINT1 &lhs, const FPINT2 &rhs)
+    {
+        return !(lhs < rhs);
     }
 
     template <typename FPINT1, typename FPINT2,
@@ -937,10 +971,10 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     {
         using detail::BOUND_SHL, detail::BOUND_SHR;
         uint64_t lhs_int, lhs_frac, rhs_int, rhs_frac;
-        lhs_int = BOUND_SHL((uint64_t)lhs.num.table[1], LHS_FRAC_BITS);
-        rhs_int = BOUND_SHL((uint64_t)rhs.num.table[1], RHS_FRAC_BITS);
-        lhs_frac = BOUND_SHR((uint64_t)lhs.num.table[0], 64-LHS_FRAC_BITS);
-        rhs_frac = BOUND_SHR((uint64_t)rhs.num.table[0], 64-RHS_FRAC_BITS);
+        lhs_int = BOUND_SHL( uint64_t(lhs.num.table[1]), LHS_FRAC_BITS );
+        rhs_int = BOUND_SHL( uint64_t(rhs.num.table[1]), RHS_FRAC_BITS );
+        lhs_frac = BOUND_SHR( uint64_t(lhs.num.table[0]), 64-LHS_FRAC_BITS );
+        rhs_frac = BOUND_SHR( uint64_t(rhs.num.table[0]), 64-RHS_FRAC_BITS );
 
         using short_int = 
             typename detail::narrow_int<typename LHS<1,0>::int_type>::type;
@@ -975,13 +1009,14 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         using short_int = 
             typename detail::narrow_int<typename LHS<1,0>::int_type>::type;
         using long_int = typename detail::extend_int<short_int>::type;
+        using detail::mul_64_to_128;
         short_int lhs_short =
-            detail::BOUND_SHR((uint64_t)lhs.num.table[0], 64-LHS_FRAC_BITS) |
-            detail::BOUND_SHL((uint64_t)lhs.num.table[1], LHS_FRAC_BITS);
+            detail::BOUND_SHR( uint64_t(lhs.num.table[0]), 64-LHS_FRAC_BITS ) |
+            detail::BOUND_SHL( uint64_t(lhs.num.table[1]), LHS_FRAC_BITS );
         short_int rhs_short =
-            detail::BOUND_SHR((uint64_t)rhs.num.table[0], 64-RHS_FRAC_BITS) |
-            detail::BOUND_SHL((uint64_t)rhs.num.table[1], RHS_FRAC_BITS);
-        long_int res_long = detail::mul_64_to_128<short_int>(lhs_short, rhs_short);
+            detail::BOUND_SHR( uint64_t(rhs.num.table[0]), 64-RHS_FRAC_BITS ) |
+            detail::BOUND_SHL( uint64_t(rhs.num.table[1]), RHS_FRAC_BITS );
+        long_int res_long = mul_64_to_128<short_int>(lhs_short, rhs_short);
         if CONSTEXPR (LHS_FRAC_BITS <= 0 && RHS_FRAC_BITS <= 0)
         {
             res_long <<= 64;
@@ -1007,13 +1042,17 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
      */
     else
     {
-        using int_type = typename detail::extend_int<
-            typename detail::narrow_int<typename LHS<1,0>::int_type>::type >::type;
+        using detail::narrow_int, detail::extend_int;
+        using int_shrt = typename narrow_int<typename LHS<1,0>::int_type>::type;
+        using int_type = typename extend_int<int_shrt>::type;
+
+        // Extract LHS and RHS to 128 bit integers.
         int_type lhs_int = lhs.num.table[1];
         int_type lhs_long = lhs_int << 64 | uint64_t(lhs.num.table[0]);
         int_type rhs_int = rhs.num.table[1];
         int_type rhs_long = rhs_int << 64 | uint64_t(rhs.num.table[0]);
 
+        // Perform the multiplication.
         lhs_long >>= (64 - LHS_FRAC_BITS);
         rhs_long >>= (64 - RHS_FRAC_BITS);
         int_type res_long = lhs_long * rhs_long;
@@ -1021,6 +1060,7 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
         res.num.table[1] = res_long >> 64;
         res.num.table[0] = res_long;
     }
+
     return res;
 }
 
@@ -1060,15 +1100,13 @@ operator/(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     LHS<LHS_INT_BITS+RHS_FRAC_BITS,LHS_FRAC_BITS-RHS_FRAC_BITS> res{};
 
     // Extract LHS num to 128-bit integer.
-    int_type lhs_frac = uint64_t(lhs.num.table[0]); // TODO:
-    int_type lhs_int = uint64_t(lhs.num.table[1]);  // TODO:
-    int_type lhs_long = lhs_int << 64 | lhs_frac;
+    int_type lhs_int = uint64_t(lhs.num.table[1]);
+    int_type lhs_long = lhs_int << 64 | uint64_t(lhs.num.table[0]);
     lhs_long <<= 64-LHS_INT_BITS;
 
     // Extract RHS num to 128-bit integer.
-    int_type rhs_frac = uint64_t(rhs.num.table[0]); // TODO:
-    int_type rhs_int = uint64_t(rhs.num.table[1]);  // TODO:
-    int_type rhs_long = rhs_int << 64 | rhs_frac;
+    int_type rhs_int = uint64_t(rhs.num.table[1]);
+    int_type rhs_long = rhs_int << 64 | uint64_t(rhs.num.table[0]);
     rhs_long >>= 64-RHS_FRAC_BITS;
 
     // Perform division and move result in place.
@@ -1205,33 +1243,36 @@ RHS<LHS_INT_BITS,LHS_FRAC_BITS> rnd(const RHS<RHS_INT_BITS, RHS_FRAC_BITS> &rhs)
 /*
  * Saturation for signed fixed point numbers.
  */
-//template <int LHS_INT_BITS,int LHS_FRAC_BITS,int RHS_INT_BITS,int RHS_FRAC_BITS>
-//SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> sat(
-//        const SignedFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs)
-//{
-//    SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> res{};
-//    res.num = rhs.get_num_sign_extended();
-//    if (res.test_overflow())
-//    {
-//        if ( res.num < 0 )
-//        {
-//            // Min value.
-//            res.num = ~((int128_t(1) << (64+LHS_INT_BITS-1)) - 1);
-//        }
-//        else
-//        {
-//            // Max value.
-//            res.num = (int128_t(1) << (64+LHS_INT_BITS-1)) - 1;
-//        }
-//        res.apply_bit_mask_frac();
-//        return res;
-//    }
-//    else
-//    {
-//        res.apply_bit_mask_frac();
-//        return res;
-//    }
-//}
+template <int LHS_INT_BITS,int LHS_FRAC_BITS,int RHS_INT_BITS,int RHS_FRAC_BITS>
+SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> sat(
+        const SignedFixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs)
+{
+    SignedFixedPoint<LHS_INT_BITS, LHS_FRAC_BITS> res{};
+    res.num = rhs.get_num_sign_extended();
+    if (res.test_overflow())
+    {
+        using detail::fpint128_t;
+
+        // If less than zero.
+        if (res.num.table[1] & (1ull << 63))
+        {
+            // Min value.
+            res.num = detail::ONE_SHL_M1_INV<fpint128_t>(64+LHS_INT_BITS-1);
+        }
+        else
+        {
+            // Max value.
+            res.num = detail::ONE_SHL_M1<fpint128_t>(64+LHS_INT_BITS-1);
+        }
+        res.apply_bit_mask_frac();
+        return res;
+    }
+    else
+    {
+        res.apply_bit_mask_frac();
+        return res;
+    }
+}
 
 
 /*

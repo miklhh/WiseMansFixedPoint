@@ -490,9 +490,9 @@ public:
 
     /*
      * Test for overflow in the underlying data type. The function is overloaded
-     * in
+     * in SignedFixedPoint and UnsignedFixedPoint.
      */
-    virtual bool test_overflow() const noexcept;
+    virtual bool test_overflow() const noexcept = 0;
 
 
     /*

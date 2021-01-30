@@ -161,7 +161,14 @@ namespace detail
               typename = decltype(FPINT2().table)>
     bool operator<(const FPINT1 &lhs, const FPINT2 &rhs)
     {
-        return lhs.table[1] < rhs.table[1] ? true : lhs.table[0] < rhs.table[0];
+        if (lhs.table[1] == rhs.table[1])
+        {
+            return uint64_t(lhs.table[0]) < uint64_t(rhs.table[0]);
+        }
+        else
+        {
+            return lhs.table[1] < rhs.table[1];
+        }
     }
 
     template <typename FPINT1, typename FPINT2,

@@ -1,19 +1,24 @@
 /*
- * WiseMansFixedPoint header only C++ fixed point module. This fixed point
+ * WiseMansFixedPoint header only C++ fixed point library. This fixed point
  * implementation supports numbers of varying integer and fractional word
- * lengths, and it employs the most basic arithmetic functions +,-,*,/ with
- * proper rounding when desiered. It is created with a hardware implementation
- * of fixed point numbers as leader, and it strives to behave as close to the
- * VHDL IEEE signed and unsigned data types as possible.
+ * lengths and it employs the most basic arithmetic functions +,-,*,/ with
+ * proper rounding when desiered, and with proper saturation when desiered.
+ * It is created with a hardware implementation of fixed point numbers as
+ * leader and it strives to behave as close to the VHDL IEEE signed and unsigned
+ * data types as possible. The library is profiled using real use case
+ * simulations and achieves preformance close to that of the double precision
+ * floating point arithmetic.
  *
  * For the penalty of some greater run-time, the user can enable overflow checks
  * by compiling the header with pre-processor macro '_DEBUG_SHOW_OVERFLOW_INFO'
- * defined (commandline option '-D_DEBUG_SHOW_OVERFLOW_INFO' for GCC or CLANG)
- * which will display some over-/underflow information during code execution.
+ * defined (command-line option '-D_DEBUG_SHOW_OVERFLOW_INFO' for GCC or CLANG)
+ * which will display over-/underflow information during code execution.
  *
  *
- * Author: Mikael Henriksson [www.github.com/miklhh]
- * Repo: https://github.com/miklhh/WiseMansFixedPoint
+ * Author:       Mikael Henriksson [www.github.com/miklhh]
+ * Public repo:  https://github.com/miklhh/WiseMansFixedPoint
+ * License:      MIT License (included in repo)
+ * Version:      Exp-1.0
  */
 
 #ifndef _WISE_MANS_FIXED_POINT_H
@@ -104,7 +109,7 @@ namespace detail
     }
 
     template <typename FPINT1, typename FPINT2,
-              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT1().table),
               typename = decltype(FPINT2().table)>
     FPINT1 operator|(const FPINT1 &lhs, const FPINT2 &rhs)
     {
@@ -115,7 +120,7 @@ namespace detail
     }
 
     template <typename FPINT1, typename FPINT2,
-              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT1().table),
               typename = decltype(FPINT2().table)>
     FPINT1 &operator|=(FPINT1 &lhs, const FPINT2 &rhs)
     {
@@ -123,7 +128,7 @@ namespace detail
     }
 
     template <typename FPINT1, typename FPINT2,
-              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT1().table),
               typename = decltype(FPINT2().table)>
     FPINT1 operator&(const FPINT1 &lhs, const FPINT2 &rhs)
     {
@@ -134,15 +139,15 @@ namespace detail
     }
 
     template <typename FPINT1, typename FPINT2,
-              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT1().table),
               typename = decltype(FPINT2().table)>
     FPINT1 &operator&=(FPINT1 &lhs, const FPINT2 &rhs)
     {
         return lhs = lhs & rhs;
     }
 
-    template <typename FPINT1, typename FPINT2, 
-              typename = decltype(FPINT1().table), 
+    template <typename FPINT1, typename FPINT2,
+              typename = decltype(FPINT1().table),
               typename = decltype(FPINT2().table)>
     bool operator==(const FPINT1 &lhs, const FPINT2 &rhs)
     {
@@ -157,7 +162,7 @@ namespace detail
     }
 
     template <typename FPINT1, typename FPINT2,
-              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT1().table),
               typename = decltype(FPINT2().table)>
     bool operator<(const FPINT1 &lhs, const FPINT2 &rhs)
     {
@@ -172,7 +177,7 @@ namespace detail
     }
 
     template <typename FPINT1, typename FPINT2,
-              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT1().table),
               typename = decltype(FPINT2().table)>
     bool operator<=(const FPINT1 &lhs, const FPINT2 &rhs)
     {
@@ -180,7 +185,7 @@ namespace detail
     }
 
     template <typename FPINT1, typename FPINT2,
-              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT1().table),
               typename = decltype(FPINT2().table)>
     bool operator>(const FPINT1 &lhs, const FPINT2 &rhs)
     {
@@ -188,7 +193,7 @@ namespace detail
     }
 
     template <typename FPINT1, typename FPINT2,
-              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT1().table),
               typename = decltype(FPINT2().table)>
     bool operator>=(const FPINT1 &lhs, const FPINT2 &rhs)
     {
@@ -196,7 +201,7 @@ namespace detail
     }
 
     template <typename FPINT1, typename FPINT2,
-              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT1().table),
               typename = decltype(FPINT2().table)>
     FPINT1 operator+(const FPINT1 &lhs, const FPINT2 &rhs)
     {
@@ -210,7 +215,7 @@ namespace detail
     }
 
     template <typename FPINT1, typename FPINT2,
-              typename = decltype(FPINT1().table), 
+              typename = decltype(FPINT1().table),
               typename = decltype(FPINT2().table)>
     FPINT1 &operator+=(FPINT1 &lhs, const FPINT2 &rhs)
     {
@@ -276,8 +281,8 @@ namespace detail
 
 
     /*
-     * Constexpr function for generating a fpint 128 data type with the value 
-     * ~((1 << N) - 1), where: 0 <= N < 128. N outside of that range causes 
+     * Constexpr function for generating a fpint 128 data type with the value
+     * ~((1 << N) - 1), where: 0 <= N < 128. N outside of that range causes
      * undefined behaviour.
      */
     template<typename INT>
@@ -648,7 +653,7 @@ protected:
  * Signed fixed point data type.
  */
 template <int INT_BITS, int FRAC_BITS>
-class SignedFixedPoint : 
+class SignedFixedPoint :
     public BaseFixedPoint<INT_BITS,FRAC_BITS,detail::fpint128_t>
 {
 public:
@@ -757,7 +762,8 @@ public:
      */
     bool test_overflow() const noexcept override
     {
-        using detail::ONE_SHL_M1_INV, detail::ufpint128_t;
+        using detail::ONE_SHL_M1_INV;
+        using detail::ufpint128_t;
         constexpr ufpint128_t MASK = ONE_SHL_M1_INV<ufpint128_t>(64+INT_BITS-1);
         return !( (this->num & MASK) == 0 || (this->num & MASK) == MASK );
     }
@@ -781,7 +787,7 @@ private:
  * Unsigned fixed point data type.
  */
 template <int INT_BITS, int FRAC_BITS>
-class UnsignedFixedPoint : 
+class UnsignedFixedPoint :
     public BaseFixedPoint<INT_BITS,FRAC_BITS,detail::ufpint128_t>
 {
 public:
@@ -858,7 +864,7 @@ public:
         using detail::ONE_SHL_M1_INV;
         using detail::ufpint128_t;
         constexpr ufpint128_t MASK = ONE_SHL_M1_INV<ufpint128_t>(64+INT_BITS);
-        return !( (this->num.table[0] & MASK.table[0]) == 0 && 
+        return !( (this->num.table[0] & MASK.table[0]) == 0 &&
                   (this->num.table[1] & MASK.table[1]) == 0 );
     }
 };
@@ -976,14 +982,15 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
     constexpr int RHS_TOTAL_BITS = RHS_INT_BITS+RHS_FRAC_BITS;
     if CONSTEXPR (LHS_TOTAL_BITS+RHS_TOTAL_BITS <= 64)
     {
-        using detail::BOUND_SHL, detail::BOUND_SHR;
+        using detail::BOUND_SHL;
+        using detail::BOUND_SHR;
         uint64_t lhs_int, lhs_frac, rhs_int, rhs_frac;
         lhs_int = BOUND_SHL( uint64_t(lhs.num.table[1]), LHS_FRAC_BITS );
         rhs_int = BOUND_SHL( uint64_t(rhs.num.table[1]), RHS_FRAC_BITS );
         lhs_frac = BOUND_SHR( uint64_t(lhs.num.table[0]), 64-LHS_FRAC_BITS );
         rhs_frac = BOUND_SHR( uint64_t(rhs.num.table[0]), 64-RHS_FRAC_BITS );
 
-        using short_int = 
+        using short_int =
             typename detail::narrow_int<typename LHS<1,0>::int_type>::type;
         short_int rhs_short = rhs_int | rhs_frac;
         short_int lhs_short = lhs_int | lhs_frac;
@@ -1013,7 +1020,7 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
      */
     else if CONSTEXPR (LHS_TOTAL_BITS <= 64 && RHS_TOTAL_BITS <= 64)
     {
-        using short_int = 
+        using short_int =
             typename detail::narrow_int<typename LHS<1,0>::int_type>::type;
         using long_int = typename detail::extend_int<short_int>::type;
         using detail::mul_64_to_128;
@@ -1049,7 +1056,8 @@ operator*(const LHS<LHS_INT_BITS,LHS_FRAC_BITS> &lhs,
      */
     else
     {
-        using detail::narrow_int, detail::extend_int;
+        using detail::narrow_int;
+        using detail::extend_int;
         using int_shrt = typename narrow_int<typename LHS<1,0>::int_type>::type;
         using int_type = typename extend_int<int_shrt>::type;
 
